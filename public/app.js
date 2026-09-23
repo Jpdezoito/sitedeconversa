@@ -1,3 +1,4 @@
+import { champions, championVersion } from './champions.js';
 const $ = selector => document.querySelector(selector);
 function revealGuideTopic() {
   const topic = document.getElementById(location.hash.slice(1));
@@ -30,6 +31,7 @@ const themes = {coffee:['☕','Resenha'],game:['🎮','Jogatina'],music:['🎵',
 const state = { id:null, name:'', rooms:[], roomId:null, stream:null, muted:false, deafened:false, ready:false, busy:false, iceServers:[], started:0 };
 state.lol = { state:'waiting', roomId:null };
 state.auto = false;
+state.roster = null;
 state.pairCode = null;
 let socket, reconnectTimer, toastTimer, audioContext, meterTimer, pendingAction, joinTimer;
 let mediaRequest=0;
@@ -87,6 +89,33 @@ function renderLol() {
   $('#auto-button').setAttribute('aria-pressed',String(state.auto));
   $('#pair-panel').hidden=Boolean(desktop) || !state.auto || !state.pairCode;
   $('#pair-code').textContent=state.pairCode || '';
+  renderAllies();
+}
+let rosterMarkup = '';
+function renderAllies() {
+  const roster = state.auto ? state.roster : null;
+  $('#allies-section').hidden = !roster?.players?.length;
+  if (!roster?.players?.length) { $('#allies-list').replaceChildren(); rosterMarkup = ''; return; }
+  const live = roster.stage === 'live';
+  $('#allies-stage').textContent = live ? 'EM PARTIDA' : roster.stage === 'select' ? 'SELEÇÃO DE CAMPEÕES' : 'CARREGANDO PARTIDA';
+  $('#allies-description').textContent = live ? 'Nomes disponíveis na partida. Boa conversa e bom jogo.' : 'Os nomes ficam anônimos até a partida disponibilizar os jogadores.';
+  const markup = JSON.stringify(roster);
+  if (rosterMarkup === markup) return;
+  rosterMarkup = markup;
+  const roles = { TOP:'Topo', JUNGLE:'Selva', MIDDLE:'Meio', BOTTOM:'Atirador', UTILITY:'Suporte' };
+  $('#allies-list').innerHTML = roster.players.map((player, index) => {
+    const champion = champions[player.championId] || Object.values(champions).find(c => (player.championKey && c.slug.toLowerCase() === player.championKey.toLowerCase()) || (player.championName && c.name === player.championName));
+    const title = live ? player.name || 'Nome indisponível' : 'Anônimo';
+    const championLabel = champion?.name || player.championName || 'Escolhendo campeão';
+    const art = champion ? 'https://ddragon.leagueoflegends.com/cdn/img/champion/loading/' + champion.slug + '_0.jpg' : '';
+    const portrait = champion ? 'https://ddragon.leagueoflegends.com/cdn/' + championVersion + '/img/champion/' + champion.slug + '.png' : '';
+    return '<article class="ally-card' + (player.isSelf ? ' ally-self' : '') + '">' +
+      (art ? '<img class="ally-art" src="' + art + '" alt="" referrerpolicy="no-referrer">' : '') +
+      '<div class="ally-content"><span class="ally-position">' + escape(roles[player.role] || 'Aliado ' + (index + 1)) + '</span>' +
+      '<h3 title="' + escape(title) + '">' + escape(title) + '</h3><span class="ally-self-label">' + (player.isSelf ? 'VOCÊ' : live ? 'NO SEU TIME' : 'IDENTIDADE OCULTA') + '</span>' +
+      '<div class="ally-portrait">' + (portrait ? '<img src="' + portrait + '" alt="" referrerpolicy="no-referrer">' : icon('shield')) + '</div>' +
+      '<strong class="ally-champion">' + escape(championLabel) + '</strong><span class="ally-status">' + (live ? 'Em partida' : roster.stage === 'loading' ? 'Aguardando o jogo' : !champion ? 'Aguardando escolha' : player.locked ? 'Campeão escolhido' : 'Escolha em andamento') + '</span></div></article>';
+  }).join('');
 }
 function renderCall() {
   const room=state.rooms.find(r=>r.id===state.roomId);
@@ -116,6 +145,7 @@ function clearPeers() {
 }
 function cleanup() {
   desktop?.disconnectLol().catch(()=>{});
+  state.roster=null;
   state.auto=false; state.pairCode=null; state.lol={state:'disabled',roomId:null};
   mediaRequest++;
   clearTimeout(joinTimer); clearPeers();
@@ -225,6 +255,7 @@ function connect() {
       state.auto=true; state.pairCode=msg.code; renderLol();
       if(desktop) desktop.connectLol(msg.code).catch(()=>toast('Não foi possível conectar o LoL. Desative e ative a voz novamente.'));
     }
+    else if(msg.type==='lol-roster') { state.roster=state.auto ? msg.roster : null; renderAllies(); }
     else if(msg.type==='auto-paired') { state.pairCode=null; renderLol(); toast('LoL conectado. Você entrará na voz quando sua partida começar.'); }
     else if(msg.type==='auto-wait') { if(state.auto) waitForAuto(); }
     else if(msg.type==='auto-expired') { cleanup(); toast('O código expirou. Ative a voz automática novamente para gerar outro.'); }

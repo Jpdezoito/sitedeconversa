@@ -26,9 +26,17 @@ Neste PC o conector já está pronto: pode abrir o **CONECTAR-LOL.cmd** da pasta
 
 A página pública não consegue descobrir a partida de cada computador sozinha. O conector consulta somente endpoints locais de leitura do cliente LoL, e envia ao Elo o estado da sessão, região, ID da partida, time e quantidade de jogadores do time. A voz continua sendo capturada e transmitida pelo navegador.
 
-O código de pareamento é aleatório, de uso único, vale 5 minutos e vincula o conector à aba em que você ativou o microfone. Não compartilhe esse código com outra pessoa. O token de reconexão fica só na memória; não são enviados senha Riot, credenciais do cliente local, nomes ou lista de contas do jogo.
+O código de pareamento é aleatório, de uso único, vale 5 minutos e vincula o conector à aba em que você ativou o microfone. Não compartilhe esse código com outra pessoa. O token de reconexão fica só na memória; não são enviados senha Riot, credenciais do cliente local ou identificadores internos de contas. Para o painel de aliados, os campeões e posições são encaminhados pelo servidor apenas à aba/aplicativo pareado; os nomes disponíveis no jogo também são encaminhados durante a partida. Na seleção, os nomes são removidos antes do envio. Esses dados não entram na lista pública de salas nem são gravados em histórico.
 
 Esta é uma integração por conector local, **não uma verificação oficial de identidade Riot**. Uma pessoa que modifique o próprio conector pode mentir sobre sua partida/time. Para exigir identidade oficial e resistir a esse tipo de falsificação é necessária uma integração adicional aprovada pela Riot. Não é uma garantia contra intrusos mal-intencionados.
+
+## Painel de aliados (versão 1.0.2)
+
+Com a voz automática ativada e o conector atualizado, o painel mostra os aliados desde a seleção de campeões. Todos os nomes ficam como **Anônimo** nessa etapa, inclusive o próprio jogador, identificado apenas pelo marcador **Você**. Os campeões são exibidos quando o cliente os fornece. Ao entrar na partida, a Live Client Data API fornece os nomes visíveis do time; se ainda estiver carregando, os cartões continuam anônimos. Os cartões não indicam que todos estão no chat de voz.
+
+O painel consulta `/lol-champ-select/v1/session` localmente e, durante o jogo, `/liveclientdata/playerlist` e `/liveclientdata/activeplayername` em `127.0.0.1:2999`. Não consulta nomes de contas na seleção nem contorna o anonimato. Retratos e nomes de campeões vêm do Data Dragon oficial da Riot.
+
+Quem usa o aplicativo antigo deve fechar o Elo, baixar o instalador 1.0.2 e instalar a nova versão. Quem usa CMD precisa baixar novamente o ZIP do conector. As regras de voz continuam iguais: a seleção mostra o time, e a sala de voz entra ao começar a partida.
 
 ## Compatibilidade e verificação
 

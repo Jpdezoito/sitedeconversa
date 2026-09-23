@@ -6,7 +6,7 @@ O servidor compartilhado ainda é necessário para reunir pessoas e sinalizar as
 
 ## Comunidade publicada
 
-Abra https://sitedeconversa.onrender.com e clique em **Baixar Elo para Windows**. O instalador 1.0.1 já inclui esse endereço. Instale, abra o aplicativo e escolha seu nome; para o LoL, ative a voz automática.
+Abra https://sitedeconversa.onrender.com e clique em **Baixar aplicativo**. O instalador 1.0.2 já inclui esse endereço. Instale, abra o aplicativo e escolha seu nome; para o LoL, ative a voz automática.
 
 ## Publicar outro servidor gratuitamente
 

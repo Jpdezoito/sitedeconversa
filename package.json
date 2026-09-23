@@ -1,19 +1,20 @@
 {
   "name": "elo-voice",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "type": "module",
   "scripts": {
     "start": "node --env-file-if-exists=.env server.js",
     "dev": "node --watch --env-file-if-exists=.env server.js",
-    "test": "node --test test/server.test.js test/lol.test.js",
+    "test": "node --test test/server.test.js test/lol.test.js test/roster.test.js",
     "test:browser": "node test/browser.js",
     "test:online": "node test/online.js",
     "test:auto": "node test/auto-browser.js",
     "build:companion": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/build-companion.ps1",
     "desktop": "electron .",
     "build:desktop": "node scripts/prepare-desktop.mjs && electron-builder --win nsis --x64",
-    "test:desktop": "node test/desktop.js"
+    "test:desktop": "node test/desktop.js",
+    "test:roster": "node test/roster-browser.js"
   },
   "engines": {
     "node": ">=22"
@@ -43,7 +44,9 @@
       "public/style.css",
       "public/favicon.svg",
       "lib/lol-client.js",
-      "package.json"
+      "package.json",
+      "lib/lol-roster.mjs",
+      "public/champions.js"
     ],
     "win": {
       "target": "nsis",

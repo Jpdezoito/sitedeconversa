@@ -9,3 +9,5 @@ public/elo-conector.zip
 companion/lol-client.mjs
 dist/
 desktop/server-config.json
+
+companion/lol-roster.mjs

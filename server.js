@@ -1,3 +1,4 @@
+import { sanitizeRoster } from './lib/lol-roster.mjs';
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -16,6 +17,7 @@ export function createVoiceServer(options = {}) {
   const files = new Map([
     ['/', ['index.html', 'text/html; charset=utf-8']],
     ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
+    ['/champions.js', ['champions.js', 'text/javascript; charset=utf-8']],
     ['/style.css', ['style.css', 'text/css; charset=utf-8']],
     ['/favicon.svg', ['favicon.svg', 'image/svg+xml']],
     ['/elo-conector.zip', ['elo-conector.zip', 'application/zip']],
@@ -24,7 +26,7 @@ export function createVoiceServer(options = {}) {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(self)');
-    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' ws: wss:; media-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://ddragon.leagueoflegends.com; connect-src 'self' ws: wss:; media-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
     res.setHeader('Cache-Control', 'no-store');
     if (!['GET', 'HEAD'].includes(req.method)) { res.writeHead(405).end(); return; }
     const pathname = new URL(req.url, 'http://localhost').pathname;
@@ -37,7 +39,7 @@ export function createVoiceServer(options = {}) {
     } catch { res.writeHead(500).end('Não foi possível abrir a página.'); }
   });
   const wss = new WebSocketServer({ noServer: true, maxPayload: 32768 });
-  const agents = new WebSocketServer({ noServer: true, maxPayload: 4096 });
+  const agents = new WebSocketServer({ noServer: true, maxPayload: 16384 });
   server.on('upgrade', (req, socket, head) => {
     const origin = req.headers.origin;
     const allowedOrigin = options.origin || process.env.PUBLIC_ORIGIN;
@@ -185,17 +187,18 @@ export function createVoiceServer(options = {}) {
         if (msg.type === 'snapshot' && Date.now() - lastSnapshot >= 500) {
           lastSnapshot = Date.now(); owner.lastAgentSeen = lastSnapshot;
           lol.update(msg.snapshot, owner.id); syncAuto();
+          send(owner, { type: 'lol-roster', roster: sanitizeRoster(msg.snapshot) });
         }
       } catch { ws.close(1008, 'Mensagem invalida'); }
     });
     ws.on('close', () => {
       clearTimeout(authTimeout);
-      if (owner?.agent === ws) { owner.agent = null; lol.update({ state: 'offline' }, owner.id); broadcast(); }
+      if (owner?.agent === ws) { owner.agent = null; lol.update({ state: 'offline' }, owner.id); send(owner, { type: 'lol-roster', roster: null }); broadcast(); }
     });
   });
   const heartbeat = setInterval(() => {
     for (const c of clients.values()) {
-      if (c.auto && c.lastAgentSeen && Date.now() - c.lastAgentSeen > 15000) lol.update({ state: 'offline' }, c.id);
+      if (c.auto && c.lastAgentSeen && Date.now() - c.lastAgentSeen > 15000) { lol.update({ state: 'offline' }, c.id); send(c, { type: 'lol-roster', roster: null }); }
       if (c.auto && c.pairCode && c.pairExpires < Date.now()) { disableAuto(c); send(c, { type: 'auto-expired' }); }
       if (!c.alive) { c.ws.terminate(); continue; }
       c.alive = false; c.ws.ping();

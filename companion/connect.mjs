@@ -15,7 +15,7 @@ const code = (await input.question('Cole o codigo que aparece ao ativar a voz au
 input.close();
 if (!/^[a-f0-9]{32}$/.test(code)) { console.error('Codigo invalido. Copie o codigo completo do site.'); process.exit(1); }
 const endpoint = new URL('/lol-agent', base); endpoint.protocol = base.protocol === 'https:' ? 'wss:' : 'ws:';
-const read = createLolReader();
+const read = createLolReader({ includeRoster: true });
 let token, timer, socket, stopping = false, label = '';
 function report(text) { if (text !== label) { label = text; console.log(text); } }
 function connect() {

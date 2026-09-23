@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session } = require('electron');
+const { app, BrowserWindow, ipcMain, session, shell } = require('electron');
 const http = require('node:http');
 const fs = require('node:fs/promises');
 const path = require('node:path');
@@ -33,9 +33,10 @@ app.whenReady().then(async () => {
   if (!serverUrl) {
     try { serverUrl = validServer((!app.isPackaged && process.env.ELO_SERVER_URL) || require('./server-config.json').serverUrl); } catch {}
   }
-  const reader = (await import(pathToFileURL(path.join(__dirname, '../lib/lol-client.js')).href)).createLolReader();
+  const reader = (await import(pathToFileURL(path.join(__dirname, '../lib/lol-client.js')).href)).createLolReader({ includeRoster: true });
   const assets = new Map([
     ['/', ['../public/index.html', 'text/html']], ['/app.js', ['../public/app.js', 'text/javascript']],
+    ['/champions.js', ['../public/champions.js', 'text/javascript']],
     ['/style.css', ['../public/style.css', 'text/css']], ['/favicon.svg', ['../public/favicon.svg', 'image/svg+xml']],
     ['/setup', ['setup.html', 'text/html']], ['/setup.js', ['setup.js', 'text/javascript']]
   ]);
@@ -49,7 +50,7 @@ app.whenReady().then(async () => {
       res.writeHead(200, {
         'Content-Type': asset[1] + '; charset=utf-8', 'Cache-Control': 'no-store',
         'X-Content-Type-Options': 'nosniff',
-        'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+        'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https://ddragon.leagueoflegends.com; connect-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
       });
       res.end(req.method === 'HEAD' ? undefined : body);
     } catch { res.writeHead(500).end(); }
@@ -74,8 +75,15 @@ app.whenReady().then(async () => {
   ses.setPermissionRequestHandler((contents, permission, callback, details) => callback(contents === window?.webContents && permission === 'media' && details.isMainFrame && new URL(details.requestingUrl).origin === origin && details.mediaTypes?.length === 1 && details.mediaTypes[0] === 'audio'));
   window = new BrowserWindow({ width: 1360, height: 900, minWidth: 700, minHeight: 600, backgroundColor: '#0d0e14', title: 'Elo Voice', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), session: ses, sandbox: true, contextIsolation: true, nodeIntegration: false } });
-  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  window.webContents.on('will-navigate', (event, url) => { if (new URL(url).origin !== origin) event.preventDefault(); });
+  function openHelp(raw) {
+    try {
+      const url = new URL(raw);
+      const allowed = ['nodejs.org', 'developers.cloudflare.com', 'sitedeconversa.onrender.com'].includes(url.hostname) || (url.hostname === 'github.com' && url.pathname.startsWith('/Jpdezoito/sitedeconversa/'));
+      if (url.protocol === 'https:' && !url.username && !url.password && allowed) shell.openExternal(url.href).catch(() => {});
+    } catch {}
+  }
+  window.webContents.setWindowOpenHandler(({ url }) => { openHelp(url); return { action: 'deny' }; });
+  window.webContents.on('will-navigate', (event, url) => { if (new URL(url).origin !== origin) { event.preventDefault(); openHelp(url); } });
   window.webContents.on('will-attach-webview', event => event.preventDefault());
   window.webContents.on('did-start-navigation', (_event, _url, inPlace, isMainFrame) => { if (isMainFrame && !inPlace) stopConnections(); });
   ipcMain.handle('elo:config', event => { trusted(event); return { serverUrl }; });
