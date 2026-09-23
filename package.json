@@ -1,6 +1,6 @@
 {
   "name": "elo-voice",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,7 +14,8 @@
     "desktop": "electron .",
     "build:desktop": "node scripts/prepare-desktop.mjs && electron-builder --win nsis --x64",
     "test:desktop": "node test/desktop.js",
-    "test:roster": "node test/roster-browser.js"
+    "test:roster": "node test/roster-browser.js",
+    "build:icons": "node scripts/generate-icons.mjs"
   },
   "engines": {
     "node": ">=22"
@@ -50,14 +51,19 @@
     ],
     "win": {
       "target": "nsis",
-      "signAndEditExecutable": false
+      "signAndEditExecutable": true,
+      "icon": "desktop/icon.ico",
+      "signExecutable": false
     },
     "nsis": {
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "artifactName": "Elo-Voice-Setup-${version}.${ext}"
+      "artifactName": "Elo-Voice-Setup-${version}.${ext}",
+      "installerIcon": "desktop/icon.ico",
+      "uninstallerIcon": "desktop/icon.ico",
+      "installerHeaderIcon": "desktop/icon.ico"
     },
     "electronDist": "node_modules/electron/dist"
   },

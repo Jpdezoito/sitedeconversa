@@ -27,6 +27,7 @@ function stopConnections() {
 function trusted(event) {
   if (event.sender !== window?.webContents || event.senderFrame !== window.webContents.mainFrame || new URL(event.senderFrame.url).origin !== origin) throw new Error('Origem não autorizada.');
 }
+if (process.platform === 'win32') app.setAppUserModelId('com.elovoice.desktop');
 app.whenReady().then(async () => {
   const saved = path.join(app.getPath('userData'), 'community.json');
   try { serverUrl = validServer(JSON.parse(await fs.readFile(saved, 'utf8')).serverUrl); } catch {}
@@ -73,7 +74,7 @@ app.whenReady().then(async () => {
   const ses = session.fromPartition('elo-local');
   ses.setPermissionCheckHandler((contents, permission, requestingOrigin, details) => contents === window?.webContents && permission === 'media' && requestingOrigin === origin && details.mediaType === 'audio');
   ses.setPermissionRequestHandler((contents, permission, callback, details) => callback(contents === window?.webContents && permission === 'media' && details.isMainFrame && new URL(details.requestingUrl).origin === origin && details.mediaTypes?.length === 1 && details.mediaTypes[0] === 'audio'));
-  window = new BrowserWindow({ width: 1360, height: 900, minWidth: 700, minHeight: 600, backgroundColor: '#0d0e14', title: 'Elo Voice', autoHideMenuBar: true,
+  window = new BrowserWindow({ width: 1360, height: 900, minWidth: 700, minHeight: 600, backgroundColor: '#0d0e14', title: 'Elo Voice', icon: path.join(__dirname, 'icon.ico'), autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), session: ses, sandbox: true, contextIsolation: true, nodeIntegration: false } });
   function openHelp(raw) {
     try {
