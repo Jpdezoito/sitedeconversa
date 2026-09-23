@@ -4,7 +4,11 @@ O aplicativo Windows inclui a interface, o runtime e o conector do LoL. Os jogad
 
 O servidor compartilhado ainda é necessário para reunir pessoas e sinalizar as conexões. Quando ele está no Render, o PC do organizador pode ficar desligado. GitHub distribui código e instaladores; GitHub Pages não executa este servidor.
 
-## Publicar o servidor gratuitamente
+## Comunidade publicada
+
+Abra https://sitedeconversa.onrender.com e clique em **Baixar Elo para Windows**. O instalador 1.0.1 já inclui esse endereço. Instale, abra o aplicativo e escolha seu nome; para o LoL, ative a voz automática.
+
+## Publicar outro servidor gratuitamente
 
 1. No Render, escolha **New > Blueprint** e selecione `Jpdezoito/sitedeconversa`. O arquivo `render.yaml` configura um único Web Service no plano **Free**.
 2. Confirme que o plano é Free. Não adicione banco de dados nem disco.
@@ -27,7 +31,7 @@ $env:ELO_SERVER_URL = 'https://SEU-SERVICO.onrender.com'
 npm.cmd run build:desktop
 ```
 
-O instalador será gerado em `dist/`. Sem `ELO_SERVER_URL`, o aplicativo abre uma tela para informar a comunidade. A opção **Comunidade** permite mudar o endereço depois. Todos devem usar o mesmo endereço.
+O instalador será gerado em `dist/`. Sem `ELO_SERVER_URL`, o build usa `eloServerUrl` do `package.json`, atualmente `https://sitedeconversa.onrender.com`. Se ambos estiverem vazios, o aplicativo abre uma tela para informar a comunidade. A opção **Comunidade** permite mudar o endereço depois. Todos devem usar o mesmo endereço.
 
 O instalador é para Windows x64, não é um APK Android. Não possui certificado comercial de assinatura de código; o Windows pode exibir um aviso de editor desconhecido.
 

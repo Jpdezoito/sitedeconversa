@@ -1,7 +1,9 @@
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
+const project = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+const configured = process.env.ELO_SERVER_URL ?? project.eloServerUrl;
 let serverUrl = '';
-if (process.env.ELO_SERVER_URL) {
-  const url = new URL(process.env.ELO_SERVER_URL.trim());
+if (configured) {
+  const url = new URL(configured.trim());
   if (url.protocol !== 'https:' || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error('ELO_SERVER_URL deve ser uma origem HTTPS.');
   serverUrl = url.origin;
 }

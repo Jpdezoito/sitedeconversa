@@ -400,3 +400,5 @@ legend { color: #d6c3e5; font-size: 12px; margin-bottom: 13px; }
 }
 
 .desktop-app .lol-actions a[download]{display:none}.desktop-setup{display:grid;place-items:center;min-height:100vh;padding:32px}.desktop-setup main{margin:0;width:min(100%,560px)}.setup-card>img{margin-bottom:28px}.setup-card h1{font-size:52px;line-height:1.08;margin:16px 0}.setup-card h1 span{color:var(--accent,#a78bfa)}.setup-card p{color:#a6a8bc;line-height:1.7;margin:20px 0}.setup-card input{width:100%;margin:10px 0 20px}.setup-card #setup-error{color:#ff9aa8}
+
+.desktop-download{margin-top:18px}.desktop-download p{font-size:12px!important;margin-top:10px!important}.desktop-app .desktop-download{display:none}
