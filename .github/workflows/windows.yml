@@ -1,0 +1,30 @@
+name: Instalador Windows
+on:
+  workflow_dispatch:
+    inputs:
+      server_url:
+        description: Endereço HTTPS do Elo no Render
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build:desktop
+        env:
+          ELO_SERVER_URL: ${{ inputs.server_url }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Elo-Voice-Windows
+          path: dist/*.exe
+          if-no-files-found: error

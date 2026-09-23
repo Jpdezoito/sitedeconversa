@@ -1,0 +1,11 @@
+node_modules/
+.env
+test-results/
+*.log
+.tools/
+.runtime/
+LINK-DO-SITE.txt
+public/elo-conector.zip
+companion/lol-client.mjs
+dist/
+desktop/server-config.json

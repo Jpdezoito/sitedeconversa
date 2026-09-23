@@ -1,0 +1,61 @@
+{
+  "name": "elo-voice",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.js",
+    "dev": "node --watch --env-file-if-exists=.env server.js",
+    "test": "node --test test/server.test.js test/lol.test.js",
+    "test:browser": "node test/browser.js",
+    "test:online": "node test/online.js",
+    "test:auto": "node test/auto-browser.js",
+    "build:companion": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/build-companion.ps1",
+    "desktop": "electron .",
+    "build:desktop": "node scripts/prepare-desktop.mjs && electron-builder --win nsis --x64",
+    "test:desktop": "node test/desktop.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.51.0",
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3"
+  },
+  "description": "Conversa por voz e salas autom?ticas para seu time no LoL",
+  "author": "Elo Voice",
+  "main": "desktop/main.cjs",
+  "build": {
+    "appId": "com.elovoice.desktop",
+    "productName": "Elo Voice",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "desktop/**/*",
+      "public/index.html",
+      "public/app.js",
+      "public/style.css",
+      "public/favicon.svg",
+      "lib/lol-client.js",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "artifactName": "Elo-Voice-Setup-${version}.${ext}"
+    },
+    "electronDist": "node_modules/electron/dist"
+  }
+}

@@ -1,0 +1,26 @@
+ELO - VOZ AUTOMATICA DO LOL
+
+1. Instale Node.js 22 ou superior pelo site oficial https://nodejs.org
+2. No site Elo, escolha seu nome e clique em Ativar voz automatica.
+3. Permita o microfone. Enquanto aguarda uma partida, ele nao transmite.
+4. Extraia todos os arquivos deste ZIP para uma pasta.
+5. Abra CONECTAR-LOL.cmd, cole o endereco do site e o codigo de pareamento.
+6. Deixe o conector, o LoL e a aba do site abertos enquanto joga.
+
+Quando a partida comecar, os usuarios conectados na mesma partida, regiao
+e time serao reunidos automaticamente. Ao finalizar, a voz e desconectada.
+O modo automatico continua esperando a proxima partida.
+
+Para sair definitivamente: clique em Desativar voz automatica no site.
+O botao Sair do grupo tambem desliga o modo automatico para nao te recolocar.
+Se atualizar/fechar a aba, sera necessario ativar e parear novamente.
+
+O conector le o cliente local. Nao pede senha Riot, nao grava audio,
+nao altera o jogo e nao salva o codigo ou credenciais de pareamento.
+Ele envia apenas estado da partida, regiao, ID do jogo e time ao site.
+
+Se a instalacao nao for encontrada, defina a variavel LOL_LOCKFILE com
+o caminho completo do arquivo lockfile dentro da pasta do LoL.
+
+A integracao LCU pode mudar em atualizacoes da Riot. Nao somos afiliados
+a Riot Games. Esta versao nao faz verificacao oficial de conta via Riot.

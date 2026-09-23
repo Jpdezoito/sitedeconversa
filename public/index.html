@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0d0e14"><meta name="description" content="Crie um grupo e converse por voz. Sem gravação, sem histórico. Só o momento.">
+  <title>Elo — chega mais, liga a voz.</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="./style.css"><script type="module" src="./app.js"></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="/" aria-label="Elo, início"><img src="./favicon.svg" alt="" width="36" height="36"><span>elo<span class="brand-dot">.</span></span><span class="brand-tag">VOICE</span></a>
+    <div class="space-label">SEU PONTO DE ENCONTRO</div>
+    <button class="nav-home active" id="home-button"><span data-icon="grid"></span> Explorar grupos <span class="nav-arrow">↗</span></button>
+    <div class="sidebar-heading"><span>GRUPOS AO VIVO</span><button class="icon-button" data-create aria-label="Criar grupo"><span data-icon="plus"></span></button></div>
+    <nav id="sidebar-rooms" aria-label="Grupos de conversa"></nav>
+    <button class="sidebar-create" data-create><span data-icon="plus"></span> Criar um grupo</button>
+    <div class="sidebar-bottom"><div class="privacy-small"><span data-icon="shield"></span><div>Só fica o momento.<small>Sem gravações. Sem histórico.</small></div></div><button id="profile-button" class="profile"><span class="avatar small" id="profile-avatar">V</span><span><strong id="profile-name">Visitante</strong><small id="connection-label">Conectando…</small></span><span data-icon="edit"></span></button></div>
+  </aside>
+  <main>
+    <header class="topbar"><div class="breadcrumb">Seu espaço <span>/</span> <strong id="page-label">Explorar grupos</strong></div><span class="live-pill"><i id="connection-dot"></i><span id="server-status">Conectando</span></span></header>
+    <div class="page-content">
+      <section class="hero">
+        <div class="hero-copy">
+          <div class="eyebrow"><span></span> A CONEXÃO COMEÇA COM UM OI</div>
+          <h1>Sua galera.<br>Sua vibe.<br><span>Só na voz.</span></h1>
+          <p>Entra, puxa uma cadeira e fica à vontade.<br> A próxima boa conversa começa aqui.</p>
+          <button class="primary" data-create><span data-icon="plus"></span> Criar meu grupo <span class="button-arrow">↗</span></button>
+          <div class="hero-note"><span data-icon="shield"></span> Sem gravação. Sem histórico. Só o agora.</div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="art-grid"></div><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+          <div class="float-label top-label"><span class="status-light"></span> menos digitar, mais sentir.</div>
+          <div class="voice-orb"><span data-icon="headphones"></span></div>
+          <div class="sound-card"><div class="sound-card-top"><span>GOOD VIBES ONLY</span><span data-icon="volume"></span></div><div class="wave"><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b></div><div class="sound-card-bottom"><span>Uma voz aproxima.</span><span>∞</span></div></div>
+          <div class="art-spark spark-one">✦</div><div class="art-spark spark-two">✦</div><div class="art-coordinate">EST. 2026 / FEITO PARA ESTAR JUNTO</div>
+        </div>
+        <span class="hero-watermark" aria-hidden="true">let's talk.</span>
+      </section>
+      <div class="community-strip"><div class="community-stats"><span class="stat-icon" data-icon="activity"></span><span><strong id="active-rooms">0</strong> grupos abertos</span><i></i><span><strong id="active-people">0</strong> pessoas em conversa</span></div><span class="community-note"><span data-icon="headphones"></span> Conexões reais. Em tempo real.</span></div>
+      <section id="lol-panel" class="lol-panel" aria-label="Voz automática do LoL">
+        <div class="lol-emblem" aria-hidden="true"><span data-icon="game"></span></div>
+        <div class="lol-copy"><div class="lol-kicker">LEAGUE OF LEGENDS <span>VOZ AUTOMÁTICA</span></div><h2 id="lol-title">Converse com seu time pelo microfone.</h2><p id="lol-description">Ative a voz e conecte seu LoL. Quem estiver na mesma partida e no mesmo time entra junto.</p><p class="lol-access">Seu microfone transmite somente dentro da sala. Ao terminar a partida, a voz é desconectada.</p></div>
+        <div class="lol-actions"><button class="primary" id="auto-button"><span data-icon="mic"></span> Ativar voz automática</button><a class="secondary" href="/elo-conector.zip" download>Baixar conector para Windows</a></div>
+        <div id="pair-panel" class="pair-panel" hidden><strong>Conecte este navegador ao seu LoL</strong><p>Extraia o conector, abra <b>CONECTAR-LOL.cmd</b> e cole o endereço do site e este código. Cada jogador conecta o próprio PC. Precisa de Node.js 22 ou superior.</p><div class="pair-code-row"><code id="pair-code"></code><button class="secondary" id="copy-pair">Copiar código</button></div><small>O código vale por 5 minutos. Deixe o conector e esta aba abertos. O microfone está sem transmitir enquanto você aguarda.</small></div>
+      </section>
+      <section id="call-section" class="call-section" hidden aria-label="Conversa atual"><div class="call-heading"><div><div class="eyebrow">VOCÊ ESTÁ NO GRUPO</div><h2 id="call-name"></h2></div><button class="secondary" id="invite-button"><span data-icon="link"></span> Convidar</button></div><div id="participants" class="participants"></div><div class="call-bottom"><span class="call-caption"><i></i> <span id="call-status">Conectando áudio…</span> <span class="elapsed" id="elapsed">00:00</span></span><div class="call-controls"><button class="control-button" id="mute-button" aria-label="Desligar microfone" aria-pressed="false"><span data-icon="mic"></span></button><button class="control-button" id="deafen-button" aria-label="Desligar som" aria-pressed="false"><span data-icon="headphones"></span></button><button class="leave-button" id="leave-button"><span data-icon="phone-off"></span><span>Sair do grupo</span></button></div></div><button id="resume-audio" class="secondary" hidden>Ativar áudio da conversa</button></section>
+      <section class="groups-section">
+        <div class="section-heading"><div><div class="heading-line"><h2>Encontre sua conversa<span class="title-dot">.</span></h2><span id="room-count" class="count">0</span></div><p>Escolha uma vibe. Entre em um grupo. Se sinta em casa.</p></div><div class="group-actions"><label class="search"><span data-icon="search"></span><input id="search" type="search" placeholder="Buscar um grupo..." aria-label="Buscar um grupo"></label><button class="secondary create-inline" data-create><span data-icon="plus"></span> Criar grupo</button></div></div>
+        <div class="filters" role="group" aria-label="Filtrar grupos por tema"><button class="filter active" data-filter="all" aria-pressed="true"><span data-icon="grid"></span> Todos os grupos</button><button class="filter" data-filter="coffee" aria-pressed="false"><span data-icon="coffee"></span> Resenha</button><button class="filter" data-filter="game" aria-pressed="false"><span data-icon="game"></span> Jogatina</button><button class="filter" data-filter="music" aria-pressed="false"><span data-icon="music"></span> Música</button><button class="filter" data-filter="work" aria-pressed="false"><span data-icon="spark"></span> Foco</button></div>
+        <div class="list-caption"><span>SEU PRÓXIMO PONTO DE ENCONTRO</span><span><i></i> SALAS DE VOZ</span></div>
+        <div id="room-list" class="room-list"></div>
+        <div id="empty-state" class="empty-state"><div class="empty-art" aria-hidden="true"><span class="empty-satellite satellite-one" data-icon="music"></span><div class="empty-icon"><span data-icon="headphones"></span></div><span class="empty-satellite satellite-two" data-icon="spark"></span></div><span class="empty-tag">O ESPAÇO É SEU</span><h3>Tá tranquilo por aqui. Por enquanto.</h3><p>Toda boa resenha começa com alguém.<br>Crie um grupo e traga suas pessoas favoritas.</p><button class="secondary" data-create><span data-icon="plus"></span> Criar o primeiro grupo <span data-icon="arrow"></span></button></div>
+        <div id="no-results" class="no-results" hidden><span data-icon="search"></span><h3>Nenhuma conversa por aqui.</h3><p>Tente outro nome ou escolha uma vibe diferente.</p></div>
+      </section>
+      <footer><span><span class="footer-dot"></span> Feito para conversar. Só isso.</span><span>Sem câmera <b>·</b> Sem chat de texto <b>·</b> Sem gravação</span></footer>
+    </div>
+  </main>
+  <dialog id="name-dialog"><form id="name-form"><div class="modal-icon"><span data-icon="headphones"></span></div><div class="eyebrow">BEM-VINDO AO ELO</div><h2>Como podemos te chamar?</h2><p>Só um nome para a galera saber quem chegou.<br>Sem cadastro, sem complicação.</p><label class="field-label" for="name-input">Seu nome</label><input id="name-input" name="name" placeholder="Ex.: João" maxlength="24" required autocomplete="off"><div class="modal-actions"><button type="button" class="secondary" id="cancel-name">Agora não</button><button type="submit" class="primary">Pode me chamar assim <span data-icon="arrow"></span></button></div></form></dialog>
+  <dialog id="create-dialog"><form id="create-form"><div class="modal-top"><div class="modal-icon"><span data-icon="plus"></span></div><button type="button" class="icon-button" id="cancel-create" aria-label="Fechar"><span data-icon="close"></span></button></div><div class="eyebrow">SEU GRUPO, SUA VIBE</div><h2>Abre espaço pra conversa.</h2><p>Crie um grupo de voz e convide quem você quiser.<br>Até 12 pessoas, só no áudio.</p><label class="field-label" for="room-name">Nome do grupo</label><input id="room-name" placeholder="Ex.: Resenha depois do trabalho" maxlength="40" required autocomplete="off"><fieldset><legend>Qual é a vibe?</legend><div class="theme-options"><label><input type="radio" name="theme" value="coffee" checked><span>☕ Resenha</span></label><label><input type="radio" name="theme" value="game"><span>🎮 Jogatina</span></label><label><input type="radio" name="theme" value="music"><span>🎵 Música</span></label><label><input type="radio" name="theme" value="work"><span>💡 Foco</span></label></div></fieldset><div class="modal-info"><span data-icon="shield"></span> O grupo desaparece quando a última pessoa sair.</div><button class="primary full" type="submit" id="create-submit"><span data-icon="mic"></span> Criar e entrar</button></form></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <div id="audio-container"></div>
+</body>
+</html>
