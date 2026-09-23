@@ -7,6 +7,8 @@ Site de voz em português, com grupos criados pelos usuários e organizados em u
 
 O instalador 1.0.1 já conecta à comunidade https://sitedeconversa.onrender.com. Abra o site, baixe, instale e abra o Elo; não é necessário instalar Node.js nem informar endereço.
 
+[Tutorial completo: aplicativo, voz no LoL e comandos CMD](https://sitedeconversa.onrender.com/#como-usar)
+
 ## Aplicativo Windows com tudo incluído
 
 Para usar o instalador sem Node.js e hospedar o servidor no Render, veja [GUIA-APLICATIVO-WINDOWS.md](GUIA-APLICATIVO-WINDOWS.md). No aplicativo, a conexão com o LoL acontece ao ativar a voz, sem conector separado ou código manual.

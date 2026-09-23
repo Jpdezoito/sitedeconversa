@@ -1,4 +1,10 @@
 const $ = selector => document.querySelector(selector);
+function revealGuideTopic() {
+  const topic = document.getElementById(location.hash.slice(1));
+  if (topic?.matches('details.guide-topic')) topic.open = true;
+}
+window.addEventListener('hashchange', revealGuideTopic);
+revealGuideTopic();
 const desktop = window.eloDesktop;
 const desktopConfig = desktop ? await desktop.getConfig() : null;
 if (desktop) {
