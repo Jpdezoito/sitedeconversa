@@ -3,6 +3,10 @@
 Site de voz em português, com grupos criados pelos usuários e organizados em uma lista vertical. Sem grupos pré-criados, chat de texto, câmera, cadastro, banco de dados ou gravação de áudio.
 
 
+[Baixar o instalador Windows](https://github.com/Jpdezoito/sitedeconversa/releases/download/v1.0.0/Elo-Voice-Setup-1.0.0.exe) · [Configurar servidor gratuito no Render](https://render.com/deploy?repo=https://github.com/Jpdezoito/sitedeconversa)
+
+O instalador inicial pede o endereço da comunidade. O servidor precisa ser publicado no Render para funcionar com o PC do organizador desligado.
+
 ## Aplicativo Windows com tudo incluído
 
 Para usar o instalador sem Node.js e hospedar o servidor no Render, veja [GUIA-APLICATIVO-WINDOWS.md](GUIA-APLICATIVO-WINDOWS.md). No aplicativo, a conexão com o LoL acontece ao ativar a voz, sem conector separado ou código manual.
