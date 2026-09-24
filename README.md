@@ -13,6 +13,10 @@ O instalador 1.0.3 já conecta à comunidade https://sitedeconversa.onrender.com
 
 Para usar o instalador sem Node.js e hospedar o servidor no Render, veja [GUIA-APLICATIVO-WINDOWS.md](GUIA-APLICATIVO-WINDOWS.md). No aplicativo, a conexão com o LoL acontece ao ativar a voz, sem conector separado ou código manual.
 
+## Assinatura do Windows
+
+O instalador público ainda não está assinado. O [guia de assinatura](GUIA-ASSINATURA-WINDOWS.md) explica o build preparado para um certificado válido e as opções de distribuição.
+
 ## Rodar no computador
 
 Requer Node.js 22 ou superior.

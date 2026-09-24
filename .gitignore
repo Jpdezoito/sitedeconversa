@@ -11,3 +11,12 @@ dist/
 desktop/server-config.json
 
 companion/lol-roster.mjs
+
+# Private signing material must never enter Git.
+.signing/
+*.pfx
+*.p12
+*.key
+*.pem
+.env.*
+!.env.example

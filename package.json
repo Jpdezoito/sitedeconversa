@@ -15,7 +15,8 @@
     "build:desktop": "node scripts/prepare-desktop.mjs && electron-builder --win nsis --x64",
     "test:desktop": "node test/desktop.js",
     "test:roster": "node test/roster-browser.js",
-    "build:icons": "node scripts/generate-icons.mjs"
+    "build:icons": "node scripts/generate-icons.mjs",
+    "build:desktop:signed": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/build-signed.ps1"
   },
   "engines": {
     "node": ">=22"
@@ -47,7 +48,11 @@
       "lib/lol-client.js",
       "package.json",
       "lib/lol-roster.mjs",
-      "public/champions.js"
+      "public/champions.js",
+      "!**/*.pfx",
+      "!**/*.p12",
+      "!**/*.key",
+      "!**/*.pem"
     ],
     "win": {
       "target": "nsis",
