@@ -35,6 +35,32 @@ state.roster = null;
 state.pairCode = null;
 let socket, reconnectTimer, toastTimer, audioContext, meterTimer, joinTimer, reconnectDeadline;
 let mediaRequest=0;
+let participantMarkup='';
+let rawMicrophone, microphoneSource, microphoneGain;
+const volumes = { mic:100, headphones:100, members:new Map() };
+try {
+  const saved=JSON.parse(localStorage.getItem('elo-audio-volumes'));
+  for(const key of ['mic','headphones']) if(Number.isFinite(saved?.[key])) volumes[key]=Math.max(0,Math.min(200,saved[key]));
+} catch {}
+function volumeControl(kind, label, value, member='') {
+  return `<label class="volume-control"><span>${escape(label)}<output>${value}%</output></span><input type="range" min="0" max="200" step="5" value="${value}" data-volume="${kind}" data-volume-member="${escape(member)}" aria-label="${escape(label)}"></label>`;
+}
+function applyVolumes() {
+  if(microphoneGain) microphoneGain.gain.value=volumes.mic/100;
+  for(const [id,peer] of peers) if(peer.gain) peer.gain.gain.value=state.deafened ? 0 : (volumes.headphones/100)*(volumes.members.get(id) ?? 100)/100;
+}
+document.addEventListener('input',event=>{
+  const input=event.target.closest('[data-volume]');
+  if(!input) return;
+  if(!['mic','headphones','member'].includes(input.dataset.volume)) return;
+  const value=Math.max(0,Math.min(200,Number(input.value)));
+  if(!Number.isFinite(value)) return;
+  if(input.dataset.volume==='member') volumes.members.set(input.dataset.volumeMember,value);
+  else volumes[input.dataset.volume]=value;
+  input.closest('label').querySelector('output').textContent=value+'%';
+  applyVolumes();
+  try { localStorage.setItem('elo-audio-volumes',JSON.stringify({mic:volumes.mic,headphones:volumes.headphones})); } catch {}
+});
 let sessionToken=null, lastMessage=Date.now();
 let activeFilter='all';
 const peers = new Map();
@@ -128,7 +154,14 @@ function renderCall() {
   $('#page-label').textContent=room ? 'Em conversa' : 'Explorar grupos';
   if (!room) return;
   $('#call-name').textContent=room.name;
-  $('#participants').innerHTML=room.members.map(m=>`<div class="participant" data-member="${m.id}"><span class="avatar">${escape(initials(m.name))}</span><strong>${escape(m.name)}${m.id===state.id?' <span>(você)</span>':''}</strong><small>${m.deafened?'Som desligado':m.muted?'Microfone desligado':m.id===state.id?'Pode falar':'Conectando…'}</small>${m.muted?`<span class="muted-icon">${icon('mic-off')}</span>`:''}</div>`).join('');
+  if(!$('#audio-volumes')) {
+    const controls=document.createElement('div'); controls.id='audio-volumes'; controls.className='audio-volumes';
+    controls.innerHTML=volumeControl('mic','Seu microfone',volumes.mic)+volumeControl('headphones','Seu fone',volumes.headphones);
+    $('#participants').after(controls);
+  }
+  const markup=room.members.map(m=>`<div class="participant" data-member="${m.id}"><span class="avatar">${escape(initials(m.name))}</span><strong>${escape(m.name)}${m.id===state.id?' <span>(você)</span>':''}</strong><small>${m.deafened?'Som desligado':m.muted?'Microfone desligado':m.id===state.id?'Pode falar':'Conectando…'}</small>${m.muted?`<span class="muted-icon">${icon('mic-off')}</span>`:''}${m.id===state.id?'':volumeControl('member','Volume de '+m.name,volumes.members.get(m.id) ?? 100,m.id)}</div>`).join('');
+  const markupKey=JSON.stringify([room.id,state.id,room.members]);
+  if(markupKey!==participantMarkup) { $('#participants').innerHTML=markup; participantMarkup=markupKey; }
   updateConnectionStatus();
 }
 function updateConnectionStatus() {
@@ -142,7 +175,7 @@ function updateConnectionStatus() {
   $('#call-status').textContent=peers.size ? connected===peers.size?'Áudio conectado':`${connected}/${peers.size} conexões de áudio`:'Esperando a galera chegar';
 }
 function clearPeers() {
-  for(const peer of peers.values()) { clearTimeout(peer.recoveryTimer); peer.pc.close(); peer.audio?.remove(); }
+  for(const peer of peers.values()) { clearTimeout(peer.recoveryTimer); peer.pc.close(); peer.source?.disconnect(); peer.gain?.disconnect(); peer.audio?.remove(); }
   peers.clear();
   for(const meter of meters.values()) meter.source.disconnect();
   meters.clear(); clearInterval(meterTimer); meterTimer=null;
@@ -155,13 +188,19 @@ function cleanup() {
   mediaRequest++;
   clearTimeout(joinTimer); clearPeers();
   state.stream?.getTracks().forEach(track=>track.stop()); state.stream=null;
+  rawMicrophone?.getTracks().forEach(track=>track.stop()); rawMicrophone=null;
+  microphoneSource?.disconnect(); microphoneGain?.disconnect(); microphoneSource=null; microphoneGain=null;
+  volumes.members.clear();
   state.roomId=null; state.started=0; state.muted=false; state.deafened=false;
   if(audioContext) { audioContext.close().catch(()=>{}); audioContext=null; }
   $('#resume-audio').hidden=true; setBusy(false); updateControls(); renderRooms();
 }
+function setMicrophoneEnabled(enabled) {
+  for(const stream of [rawMicrophone,state.stream]) stream?.getAudioTracks().forEach(track=>track.enabled=enabled);
+}
 function waitForAuto() {
   clearTimeout(joinTimer); clearPeers(); state.roomId=null; state.started=0;
-  state.stream?.getAudioTracks().forEach(t=>t.enabled=false);
+  setMicrophoneEnabled(false);
   setBusy(false); renderRooms();
 }
 async function microphone() {
@@ -170,9 +209,17 @@ async function microphone() {
   if(!navigator.mediaDevices?.getUserMedia) throw new Error('Para usar o microfone, abra o site com HTTPS ou em localhost.');
   const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
   if(!state.ready || request!==mediaRequest) { stream.getTracks().forEach(t=>t.stop()); throw new Error('A entrada foi interrompida. Tente entrar novamente.'); }
-  state.stream=stream;
+  try {
+    audioContext ||= new AudioContext(); await audioContext.resume();
+    if(!state.ready || request!==mediaRequest) throw new Error('A entrada foi interrompida. Tente entrar novamente.');
+    rawMicrophone=stream;
+    microphoneSource=audioContext.createMediaStreamSource(stream);
+    microphoneGain=audioContext.createGain();
+    const destination=audioContext.createMediaStreamDestination();
+    microphoneSource.connect(microphoneGain); microphoneGain.connect(destination);
+    state.stream=destination.stream; applyVolumes();
+  } catch(error) { stream.getTracks().forEach(track=>track.stop()); throw error; }
   for (const track of stream.getTracks()) track.onended=()=>{ if(state.roomId || state.auto) { leaveRoom(); toast('O microfone foi desconectado. Conecte-o e entre novamente.'); } };
-  try { audioContext ||= new AudioContext(); await audioContext.resume(); } catch {}
 }
 function meter(id, stream) {
   if(!audioContext) return;
@@ -196,10 +243,12 @@ function getPeer(id) {
   state.stream.getTracks().forEach(track=>pc.addTrack(track,state.stream));
   pc.onicecandidate=({candidate})=>{ if(candidate && state.ready && state.roomId && socket?.readyState===WebSocket.OPEN) send({type:'signal',to:id,data:{candidate}}); };
   pc.ontrack=event=>{
-    peer.audio?.remove();
-    const audio=document.createElement('audio'); audio.autoplay=true; audio.playsInline=true; audio.muted=state.deafened;
+    peer.source?.disconnect(); peer.gain?.disconnect(); peer.audio?.remove();
+    const audio=document.createElement('audio'); audio.autoplay=true; audio.playsInline=true; audio.muted=true;
     const stream=event.streams[0] || new MediaStream([event.track]); audio.srcObject=stream;
-    $('#audio-container').append(audio); peer.audio=audio; meter(id,stream);
+    $('#audio-container').append(audio); peer.audio=audio;
+    peer.source=audioContext.createMediaStreamSource(stream); peer.gain=audioContext.createGain();
+    peer.source.connect(peer.gain); peer.gain.connect(audioContext.destination); applyVolumes(); meter(id,stream);
     audio.play().catch(()=>$('#resume-audio').hidden=false);
   };
   pc.onconnectionstatechange=()=>{
@@ -229,6 +278,9 @@ function offer(id,restart=false) {
   const peer=getPeer(id);
   peer.queue=peer.queue.then(async()=>{
     if(peers.get(id)!==peer || !state.ready) return;
+    // Both ends may request recovery together; keep one ICE restart in flight.
+    if(restart && Date.now()-(peer.lastRestart || 0)<4000) return;
+    if(restart) peer.lastRestart=Date.now();
     if(restart && peer.pc.signalingState==='have-local-offer') await peer.pc.setLocalDescription({type:'rollback'});
     if(peer.pc.signalingState!=='stable') return;
     await peer.pc.setLocalDescription(await peer.pc.createOffer({iceRestart:restart}));
@@ -244,7 +296,7 @@ function reconcilePeers() {
   }
 }
 function removePeer(id) {
-  const p=peers.get(id); clearTimeout(p?.recoveryTimer); p?.pc.close(); p?.audio?.remove(); peers.delete(id);
+  const p=peers.get(id); clearTimeout(p?.recoveryTimer); p?.pc.close(); p?.source?.disconnect(); p?.gain?.disconnect(); p?.audio?.remove(); peers.delete(id);
   meters.get(id)?.source.disconnect(); meters.delete(id); updateConnectionStatus();
 }
 function handleSignal(id,data) {
@@ -282,7 +334,7 @@ function connect() {
         else {
           state.auto=Boolean(msg.lol?.enabled);
           if(state.auto && !msg.lol?.paired) send({type:'auto-enable'});
-          state.stream?.getAudioTracks().forEach(t=>t.enabled=Boolean(state.roomId) && !state.muted && !state.deafened);
+          setMicrophoneEnabled(Boolean(state.roomId) && !state.muted && !state.deafened);
           if(state.roomId) { meter(state.id,state.stream); reconcilePeers(); send({type:'state',muted:state.muted || state.deafened,deafened:state.deafened}); }
         }
       }
@@ -295,7 +347,7 @@ function connect() {
       clearTimeout(joinTimer); clearPeers(); state.roomId=msg.room.id; state.started=Date.now();
       if(!state.rooms.some(r=>r.id===msg.room.id)) state.rooms.push(msg.room);
       meter(state.id,state.stream); setBusy(false); $('#create-dialog').close(); renderRooms();
-      state.stream.getAudioTracks().forEach(t=>t.enabled=!state.muted && !state.deafened);
+      setMicrophoneEnabled(!state.muted && !state.deafened);
       for(const peer of msg.peers) offer(peer.id);
       send({type:'state',muted:state.muted || state.deafened,deafened:state.deafened});
       $('#call-section').scrollIntoView({behavior:'smooth',block:'center'});
@@ -352,8 +404,8 @@ function updateControls() {
   $('#deafen-button').setAttribute('aria-pressed',String(state.deafened)); $('#deafen-button').setAttribute('aria-label',state.deafened?'Ligar som':'Desligar som');
 }
 function syncAudioState() {
-  state.stream?.getAudioTracks().forEach(track=>track.enabled=!state.muted && !state.deafened);
-  peers.forEach(p=>{ if(p.audio) p.audio.muted=state.deafened; });
+  setMicrophoneEnabled(Boolean(state.roomId) && !state.muted && !state.deafened);
+  applyVolumes();
   updateControls(); if(state.ready) send({type:'state',muted:state.muted || state.deafened,deafened:state.deafened});
 }
 document.addEventListener('click',event=>{

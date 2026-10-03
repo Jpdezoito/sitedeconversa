@@ -1,4 +1,4 @@
-﻿# Elo no Windows e no Render
+# Elo no Windows e no Render
 
 O aplicativo Windows inclui a interface, o runtime e o conector do LoL. Os jogadores não instalam Node.js e não copiam códigos. Ativam a voz no aplicativo e mantêm o LoL aberto no mesmo PC.
 
@@ -39,7 +39,7 @@ O instalador é para Windows x64, não é um APK Android. Não possui certificad
 
 Instale e abra o Elo. Você recebe um número automático ao entrar em cada sala. Crie um grupo ou entre em um grupo existente. Para LoL, clique **Ativar voz automática**: o Elo lê o cliente local e reúne usuários com a voz ativada que estejam na mesma partida, região e time. O microfone fica sem transmitir enquanto aguarda. Ao terminar a partida, a sala encerra; a próxima partida gera outra sala.
 
-Números, salas, códigos e associação com a partida ficam em memória. O aplicativo não grava áudio. Apenas o endereço da comunidade é salvo na configuração local. Fechar o Elo encerra a participação; abrir novamente requer ativar a voz.
+Números, salas, códigos e associação com a partida ficam em memória. O aplicativo não grava áudio. O endereço da comunidade e as preferências de volume do microfone e do fone são salvos localmente. Fechar o Elo encerra a participação; abrir novamente requer ativar a voz.
 
 ## Atualizar para 1.0.4
 
@@ -62,3 +62,13 @@ npm.cmd run test:auto
 ```
 
 O teste desktop abre duas instâncias com microfones simulados, verifica o pareamento integrado, o isolamento do renderer, os pacotes de áudio recebidos e a tela de comunidade. Não grava o microfone real.
+
+## Instalador local 1.0.5 e volumes
+
+O instalador atualizado fica em `dist/Elo-Voice-Setup-1.0.5.exe`. Feche o Elo e instale por cima da versão anterior. O site aponta para a release 1.0.5, com controles de volume de microfone, fone e participantes.
+
+Dentro de qualquer sala manual ou automática, use **Seu microfone** para ajustar a voz enviada a todos e **Seu fone** para ajustar todas as vozes recebidas. Os controles vão de 0% a 200%; 100% corresponde ao volume original e 0% silencia. Cada participante remoto também possui um controle individual de volume, aplicado apenas à sua escuta. Cada pessoa controla o próprio microfone e fone. As preferências gerais persistem no mesmo navegador ou aplicativo; os ajustes individuais duram a sessão de voz.
+
+A versão corrige o processamento da saída no Chrome e sincroniza o mute com a captura original do microfone, inclusive enquanto aguarda a sala automática. O volume geral também se aplica a participantes que entram depois.
+
+Pedidos simultâneos de recuperação do áudio agora compartilham uma tentativa de reinício ICE, evitando renegociações duplicadas.

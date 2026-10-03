@@ -13,7 +13,11 @@ try {
   const makePage=async()=>{
     const context=await browser.newContext({permissions:['microphone','clipboard-read','clipboard-write'],viewport:{width:1440,height:1080}});
     await context.addInitScript(()=>{
-      window.testPeers=[]; window.testStreams=[];
+      window.testPeers=[]; window.testStreams=[]; window.testGains=[];
+      const NativeAudioContext=window.AudioContext;
+      window.AudioContext=class extends NativeAudioContext {
+        createGain() { const gain=super.createGain(); window.testGains.push(gain); return gain; }
+      };
       const NativePeer=window.RTCPeerConnection;
       window.RTCPeerConnection=class extends NativePeer { constructor(...args) { super(...args); window.testPeers.push(this); } };
       const getMedia=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
@@ -40,13 +44,60 @@ try {
     return false;
   });
   assert.equal(await a.locator('.participant').count(),2);
+  const setVolume=async(selector,value)=>a.locator(selector).evaluate((input,value)=>{input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));},value);
+  await setVolume('[data-volume="mic"]',150);
+  await setVolume('[data-volume="headphones"]',200);
+  await setVolume('[data-volume="member"]',50);
+  assert.deepEqual(await a.evaluate(()=>window.testGains.map(node=>node.gain.value)),[1.5,1]);
+  await setVolume('[data-volume="member"]',0);
+  assert.equal(await a.evaluate(()=>window.testGains[1].gain.value),0);
+  await setVolume('[data-volume="member"]',100);
+  assert.equal(await a.evaluate(()=>window.testGains[1].gain.value),2);
+  await setVolume('[data-volume="mic"]',0);
+  assert.equal(await a.evaluate(()=>window.testGains[0].gain.value),0);
+  await setVolume('[data-volume="mic"]',100);
+  await setVolume('[data-volume="headphones"]',100);
   assert.equal(await b.locator('#audio-container audio').count(),1);
+  // Check actual output samples, not just incoming RTP packets.
+  await a.evaluate(()=>{
+    const gain=window.testGains[1];
+    window.outputMeter=gain.context.createAnalyser();
+    gain.connect(window.outputMeter);
+  });
+  await a.waitForFunction(()=>{
+    const samples=new Float32Array(window.outputMeter.fftSize);
+    window.outputMeter.getFloatTimeDomainData(samples);
+    return samples.some(value=>Math.abs(value)>0.0001);
+  });
+  const c=await makePage();
+  await setVolume('[data-volume="headphones"]',50);
+  await c.locator('.join-button').click();
+  await c.getByText('Áudio conectado',{exact:true}).waitFor({timeout:20000});
+  await a.waitForFunction(()=>window.testGains.length===3);
+  assert.deepEqual(await a.evaluate(()=>window.testGains.slice(1).map(node=>node.gain.value)),[0.5,0.5]);
+  await c.locator('[data-volume="mic"]').evaluate(input=>{input.value=50;input.dispatchEvent(new Event('input',{bubbles:true}));});
+  assert.equal(await c.evaluate(()=>window.testGains[0].gain.value),0.5);
+  assert.equal(await a.evaluate(()=>window.testGains[0].gain.value),1);
+  await c.getByRole('button',{name:'Sair do grupo'}).click();
+  await c.reload();
+  await c.getByText('Tudo pronto para conectar',{exact:true}).waitFor();
+  await c.locator('.join-button').click();
+  await c.locator('#call-section').waitFor();
+  assert.equal(await c.locator('[data-volume="mic"]').inputValue(),'50');
+  assert.equal(await c.evaluate(()=>window.testGains[0].gain.value),0.5);
+  await c.getByRole('button',{name:'Sair do grupo'}).click();
+  await a.waitForFunction(()=>document.querySelectorAll('.participant').length===2);
+  await setVolume('[data-volume="headphones"]',100);
+
   await a.getByRole('button',{name:'Desligar microfone',exact:true}).click();
   await b.getByText('Microfone desligado',{exact:true}).waitFor();
+  assert.equal(await a.evaluate(()=>window.testStreams[0].getAudioTracks()[0].enabled),false);
   await a.getByRole('button',{name:'Ligar microfone',exact:true}).click();
   await a.getByRole('button',{name:'Desligar som',exact:true}).click();
   await b.getByText('Som desligado',{exact:true}).waitFor();
+  assert.equal(await a.evaluate(()=>window.testGains[1].gain.value),0);
   await a.getByRole('button',{name:'Ligar som',exact:true}).click();
+  assert.equal(await a.evaluate(()=>window.testGains[1].gain.value),1);
   await a.getByRole('button',{name:'Convidar',exact:true}).click();
   const invite=await a.evaluate(()=>navigator.clipboard.readText()); assert.match(invite,/grupo=/);
   await a.screenshot({path:'test-results/call-desktop.png',fullPage:true});
@@ -89,5 +140,5 @@ try {
   await expired.getByText('Permita o acesso ao microfone no navegador para conversar.').waitFor();
   assert.equal(app.rooms.size,0);
   assert.deepEqual(errors,[]);
-  console.log('OK: voz entre 2 navegadores, mute, som, convites, salas isoladas, busca, limpeza, permissão negada e layout mobile.');
+  console.log('OK: volumes e amostras de som, entrada de terceiro participante, voz entre navegadores, mute, som, convites, salas isoladas, busca, limpeza, permissão negada e layout mobile.');
 } finally { await browser?.close(); await app.close(); }
