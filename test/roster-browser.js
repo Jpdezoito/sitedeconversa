@@ -6,7 +6,7 @@ const app=createVoiceServer();await new Promise(r=>app.server.listen(0,'127.0.0.
 const browser=await chromium.launch({channel:'chrome',headless:true,args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});let agent;const errors=[];
 try{
  const context=await browser.newContext({permissions:['microphone'],viewport:{width:1440,height:1050}});const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
- await page.goto(`http://127.0.0.1:${app.server.address().port}`);await page.getByText('Tudo pronto para conectar').waitFor();await page.locator('#auto-button').click();await page.locator('#name-input').fill('Jogador de teste');await page.locator('#name-form').getByRole('button',{name:'Pode me chamar assim'}).click();await page.locator('#pair-panel').waitFor();const code=await page.locator('#pair-code').textContent();
+ await page.goto(`http://127.0.0.1:${app.server.address().port}`);await page.getByText('Tudo pronto para conectar').waitFor();await page.locator('#auto-button').click();await page.locator('#pair-panel').waitFor();const code=await page.locator('#pair-code').textContent();
  agent=new WebSocket(`ws://127.0.0.1:${app.server.address().port}/lol-agent`);await new Promise(r=>agent.once('open',r));const paired=new Promise(r=>agent.once('message',r));agent.send(JSON.stringify({code}));await paired;
  const players=[{championId:266,role:'TOP'},{championId:64,role:'JUNGLE'},{championId:103,role:'MIDDLE'},{championId:360,role:'BOTTOM',isSelf:true},{championId:267,role:'UTILITY'}].map((p,i)=>({...p,name:'Aliado '+(i+1)+'#BR1',locked:true}));
  const selection={state:'idle',phase:'ChampSelect',roster:{stage:'select',players}};

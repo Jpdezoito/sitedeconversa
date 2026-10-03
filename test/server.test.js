@@ -37,7 +37,8 @@ test('grupos independentes, sinalização restrita e encerramento sem histórico
   const {room}=await a.take('joined');
   b.send({type:'join',roomId:room.id});
   const joined=await b.take('joined');
-  assert.equal(joined.peers[0].name,'Ana');
+  assert.equal(joined.peers[0].name,'Participante 1');
+  assert.equal(joined.room.members[1].name,'Participante 2');
   b.send({type:'signal',to:a.id,data:{description:{type:'offer',sdp:'test'}}});
   assert.equal((await a.take('signal')).from,b.id);
   c.send({type:'create',name:'Jogatina',theme:'game'});
@@ -59,8 +60,7 @@ test('grupos independentes, sinalização restrita e encerramento sem histórico
 });
 test('valida nomes, mensagens e estado de áudio',async t=>{
   const app=await setup(t),a=await app.client();
-  a.send({type:'create',name:'Grupo'}); assert.match((await a.take('error')).message,/nome/);
-  a.send({type:'identify',name:'   '}); assert.match((await a.take('error')).message,/chamado/);
+  a.send({type:'identify',name:'Nome abusivo'}); assert.equal((await a.take('identified')).name,'Participante');
   a.send({type:'identify',name:'Ana'}); await a.take('identified');
   a.send({type:'create',name:'  '}); assert.match((await a.take('error')).message,/nome/);
   a.ws.send('{broken'); assert.match((await a.take('error')).message,/inválida/);

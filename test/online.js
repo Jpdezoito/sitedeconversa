@@ -25,9 +25,6 @@ try {
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(base);
     await page.getByText('Tudo pronto para conectar', { exact: true }).waitFor({ timeout: 20000 });
-    await page.locator('#profile-button').click();
-    await page.getByLabel('Seu nome', { exact: true }).fill(name);
-    await page.getByRole('button', { name: 'Pode me chamar assim' }).click();
     pages.push(page);
   }
   const [a, b] = pages;

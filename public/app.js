@@ -33,13 +33,14 @@ state.lol = { state:'waiting', roomId:null };
 state.auto = false;
 state.roster = null;
 state.pairCode = null;
-let socket, reconnectTimer, toastTimer, audioContext, meterTimer, pendingAction, joinTimer;
+let socket, reconnectTimer, toastTimer, audioContext, meterTimer, joinTimer, reconnectDeadline;
 let mediaRequest=0;
+let sessionToken=null, lastMessage=Date.now();
 let activeFilter='all';
 const peers = new Map();
 const meters = new Map();
 const escape = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const initials = name => name.trim().split(/\s+/).map(s=>[...s][0]).slice(0,2).join('').toUpperCase();
+const initials = name => String(name).match(/\d+$/)?.[0] || '#';
 function toast(message) { $('#toast').textContent=message; $('#toast').hidden=false; clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('#toast').hidden=true,6500); }
 function send(data) { if (socket?.readyState !== WebSocket.OPEN || !state.ready) throw new Error('A conexão caiu. Aguarde a reconexão.'); socket.send(JSON.stringify(data)); }
 function setBusy(value) { state.busy=value; document.querySelectorAll('[data-create], [data-join], #create-submit').forEach(el=>el.disabled=value); }
@@ -53,6 +54,9 @@ function renderRooms() {
   $('#no-results').hidden=!state.rooms.length || !!visible.length;
   $('#sidebar-rooms').innerHTML=state.rooms.length ? state.rooms.map(r=>`<button class="sidebar-room ${r.id===state.roomId?'current':''}" data-join="${r.id}">${icon('volume')}<span class="room-label">${escape(r.name)}</span><span class="mini-count">${r.members.length}</span></button>`).join('') : '<div class="sidebar-empty">Nenhum grupo por enquanto.<br>Que tal começar uma conversa?</div>';
   $('#room-list').innerHTML=visible.map(r=>`<article class="room-card ${r.id===state.roomId?'current':''}" data-theme="${r.theme}"><span class="room-symbol">${icon(r.theme==='work'?'spark':r.theme)}</span><div class="room-details"><h3>${escape(r.name)}<span class="room-live">AO VIVO</span></h3><p><span class="room-theme">${themes[r.theme][1]}</span><span class="room-divider">·</span>${r.members.length}/${r.capacity} pessoas</p></div><div class="room-people" aria-hidden="true">${r.members.slice(0,3).map(m=>`<span class="avatar">${escape(initials(m.name))}</span>`).join('')}</div><button class="join-button" data-join="${r.id}" ${state.busy || (r.members.length>=r.capacity && r.id!==state.roomId)?'disabled':''}>${r.id===state.roomId?'Você está aqui':'Entrar no grupo'}${icon(r.id===state.roomId?'headphones':'arrow')}</button></article>`).join('');
+  const self=state.rooms.find(r=>r.id===state.roomId)?.members.find(m=>m.id===state.id);
+  $('#profile-name').textContent=self?.name || 'Número automático';
+  $('#profile-avatar').textContent=self?.number || '#';
   renderCall();
   renderLol();
 }
@@ -138,12 +142,13 @@ function updateConnectionStatus() {
   $('#call-status').textContent=peers.size ? connected===peers.size?'Áudio conectado':`${connected}/${peers.size} conexões de áudio`:'Esperando a galera chegar';
 }
 function clearPeers() {
-  for(const peer of peers.values()) { peer.pc.close(); peer.audio?.remove(); }
+  for(const peer of peers.values()) { clearTimeout(peer.recoveryTimer); peer.pc.close(); peer.audio?.remove(); }
   peers.clear();
   for(const meter of meters.values()) meter.source.disconnect();
   meters.clear(); clearInterval(meterTimer); meterTimer=null;
 }
 function cleanup() {
+  clearTimeout(reconnectDeadline); reconnectDeadline=null;
   desktop?.disconnectLol().catch(()=>{});
   state.roster=null;
   state.auto=false; state.pairCode=null; state.lol={state:'disabled',roomId:null};
@@ -187,9 +192,9 @@ function meter(id, stream) {
 function getPeer(id) {
   if(peers.has(id)) return peers.get(id);
   const pc=new RTCPeerConnection({iceServers:state.iceServers});
-  const peer={pc,candidates:[],queue:Promise.resolve(),audio:null}; peers.set(id,peer);
+  const peer={pc,candidates:[],queue:Promise.resolve(),audio:null,recoveryAttempts:0}; peers.set(id,peer);
   state.stream.getTracks().forEach(track=>pc.addTrack(track,state.stream));
-  pc.onicecandidate=({candidate})=>{ if(candidate && state.ready && state.roomId) send({type:'signal',to:id,data:{candidate}}); };
+  pc.onicecandidate=({candidate})=>{ if(candidate && state.ready && state.roomId && socket?.readyState===WebSocket.OPEN) send({type:'signal',to:id,data:{candidate}}); };
   pc.ontrack=event=>{
     peer.audio?.remove();
     const audio=document.createElement('audio'); audio.autoplay=true; audio.playsInline=true; audio.muted=state.deafened;
@@ -199,18 +204,53 @@ function getPeer(id) {
   };
   pc.onconnectionstatechange=()=>{
     updateConnectionStatus();
-    if(pc.connectionState==='failed') toast('Não foi possível conectar a uma pessoa. Tente entrar novamente; algumas redes precisam de um servidor TURN.');
+    if(pc.connectionState==='connected') { clearTimeout(peer.recoveryTimer); peer.recoveryTimer=null; peer.recoveryAttempts=0; }
+    else if(['failed','disconnected'].includes(pc.connectionState)) scheduleRecovery(id);
   };
+  scheduleRecovery(id);
   return peer;
 }
-async function offer(id) {
+function scheduleRecovery(id) {
+  const peer=peers.get(id);
+  if(!peer || peer.recoveryTimer || peer.recoveryAttempts>=4) return;
+  peer.recoveryTimer=setTimeout(()=>{
+    peer.recoveryTimer=null;
+    if(peers.get(id)!==peer || peer.pc.connectionState==='connected') return;
+    if(!state.ready) { scheduleRecovery(id); return; }
+    peer.recoveryAttempts++;
+    // Only one end restarts ICE, avoiding simultaneous offers.
+    if(state.id<id) offer(id,true);
+    else send({type:'signal',to:id,data:{recover:true}});
+    if(peer.recoveryAttempts>=4) toast('O áudio não reconectou. Confira sua internet e tente entrar na sala novamente.');
+    else scheduleRecovery(id);
+  },5000);
+}
+function offer(id,restart=false) {
   const peer=getPeer(id);
-  try { await peer.pc.setLocalDescription(await peer.pc.createOffer()); if(peers.get(id)===peer) send({type:'signal',to:id,data:{description:peer.pc.localDescription}}); }
-  catch { if(peers.get(id)===peer) toast('Não foi possível iniciar o áudio. Saia e entre novamente.'); }
+  peer.queue=peer.queue.then(async()=>{
+    if(peers.get(id)!==peer || !state.ready) return;
+    if(restart && peer.pc.signalingState==='have-local-offer') await peer.pc.setLocalDescription({type:'rollback'});
+    if(peer.pc.signalingState!=='stable') return;
+    await peer.pc.setLocalDescription(await peer.pc.createOffer({iceRestart:restart}));
+    if(peers.get(id)===peer && state.ready) send({type:'signal',to:id,data:{description:peer.pc.localDescription}});
+  }).catch(()=>{ if(peers.get(id)===peer) scheduleRecovery(id); });
+}
+function reconcilePeers() {
+  const room=state.rooms.find(r=>r.id===state.roomId);
+  for(const id of peers.keys()) if(!room?.members.some(m=>m.id===id)) removePeer(id);
+  for(const member of room?.members || []) if(member.id!==state.id) {
+    if(!peers.has(member.id)) { getPeer(member.id); if(state.id<member.id) offer(member.id); }
+    else if(peers.get(member.id).pc.connectionState!=='connected') scheduleRecovery(member.id);
+  }
+}
+function removePeer(id) {
+  const p=peers.get(id); clearTimeout(p?.recoveryTimer); p?.pc.close(); p?.audio?.remove(); peers.delete(id);
+  meters.get(id)?.source.disconnect(); meters.delete(id); updateConnectionStatus();
 }
 function handleSignal(id,data) {
   if(!state.roomId || !state.stream) return;
   const peer=getPeer(id);
+  if(data.recover) { if(state.id<id) offer(id,true); return; }
   peer.queue=peer.queue.then(async()=>{
     if(peers.get(id)!==peer) return;
     if(data.description) {
@@ -220,21 +260,35 @@ function handleSignal(id,data) {
     } else if(data.candidate) {
       if(peer.pc.remoteDescription) await peer.pc.addIceCandidate(data.candidate); else peer.candidates.push(data.candidate);
     }
-  }).catch(()=>{ if(peers.get(id)===peer) toast('Houve uma falha ao conectar o áudio. Tente entrar novamente.'); });
+  }).catch(()=>{ if(peers.get(id)===peer) scheduleRecovery(id); });
 }
 function connect() {
   state.ready=false;
   socket=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/ws`);
   socket.onmessage=event=>{
+    lastMessage=Date.now();
     const msg=JSON.parse(event.data);
     if(msg.type==='welcome') {
+      if(msg.protocol===2 && !msg.confirmed) { socket.send(JSON.stringify({type:'hello',token:sessionToken})); return; }
+      if(sessionToken && !msg.resumed) { cleanup(); toast('O servidor reiniciou ou a sessão expirou. Entre novamente em um grupo ou ative a voz automática.'); }
+      clearTimeout(reconnectDeadline); reconnectDeadline=null;
+      sessionToken=msg.token || null;
       state.ready=true; state.id=msg.id; state.rooms=msg.rooms; state.iceServers=msg.iceServers;
       state.lol=msg.lol || {state:'disabled',roomId:null};
       $('#server-status').textContent='Tudo pronto para conectar'; $('#connection-dot').classList.add('connected'); $('#connection-label').textContent='Disponível para conversar';
-      if(state.name) send({type:'identify',name:state.name});
+      if(msg.resumed) {
+        if(state.roomId!==msg.roomId) { clearPeers(); state.roomId=msg.roomId; state.started=msg.roomId?Date.now():0; }
+        if(state.roomId && !state.stream?.active) { send({type:'leave'}); cleanup(); }
+        else {
+          state.auto=Boolean(msg.lol?.enabled);
+          if(state.auto && !msg.lol?.paired) send({type:'auto-enable'});
+          state.stream?.getAudioTracks().forEach(t=>t.enabled=Boolean(state.roomId) && !state.muted && !state.deafened);
+          if(state.roomId) { meter(state.id,state.stream); reconcilePeers(); send({type:'state',muted:state.muted || state.deafened,deafened:state.deafened}); }
+        }
+      }
       renderRooms();
       const invite=new URL(location.href).searchParams.get('grupo');
-      if(invite) { history.replaceState(null,'',location.pathname); const room=state.rooms.find(r=>r.id===invite); if(room) requireName(()=>enterRoom({type:'join',roomId:invite})); else toast('Este convite expirou porque o grupo já foi encerrado. Crie um novo grupo.'); }
+      if(invite) { history.replaceState(null,'',location.pathname); const room=state.rooms.find(r=>r.id===invite); if(room) whenReady(()=>enterRoom({type:'join',roomId:invite})); else toast('Este convite expirou porque o grupo já foi encerrado. Crie um novo grupo.'); }
     } else if(msg.type==='rooms') { state.rooms=msg.rooms; state.lol=msg.lol || state.lol; renderRooms(); }
     else if(msg.type==='joined') {
       if(!state.stream?.active) { send({type:'leave'}); cleanup(); toast('Ative novamente o microfone para entrar.'); return; }
@@ -248,12 +302,13 @@ function connect() {
     } else if(msg.type==='peer-joined') {
       // Only the newcomer offers. This prevents simultaneous offer collisions.
     } else if(msg.type==='signal') handleSignal(msg.from,msg.data);
-    else if(msg.type==='peer-left') { const p=peers.get(msg.id); p?.pc.close(); p?.audio?.remove(); peers.delete(msg.id); meters.get(msg.id)?.source.disconnect(); meters.delete(msg.id); updateConnectionStatus(); }
+    else if(msg.type==='peer-left') removePeer(msg.id);
+    else if(msg.type==='peer-resumed') { if(state.roomId && state.stream) { const existed=peers.has(msg.id); const peer=getPeer(msg.id); if(!existed && state.id<msg.id) offer(msg.id); else if(peer.pc.connectionState!=='connected') scheduleRecovery(msg.id); } }
     else if(msg.type==='left') cleanup();
     else if(msg.type==='room-closed' && msg.roomId===state.roomId) { if(state.auto) waitForAuto(); else cleanup(); toast(msg.message); }
     else if(msg.type==='auto-pair') {
       state.auto=true; state.pairCode=msg.code; renderLol();
-      if(desktop) desktop.connectLol(msg.code).catch(()=>toast('Não foi possível conectar o LoL. Desative e ative a voz novamente.'));
+      if(desktop && msg.code) desktop.connectLol(msg.code).catch(()=>toast('Não foi possível conectar o LoL. Desative e ative a voz novamente.'));
     }
     else if(msg.type==='lol-roster') { state.roster=state.auto ? msg.roster : null; renderAllies(); }
     else if(msg.type==='auto-paired') { state.pairCode=null; renderLol(); toast('LoL conectado. Você entrará na voz quando sua partida começar.'); }
@@ -263,16 +318,19 @@ function connect() {
     else if(msg.type==='error') { clearTimeout(joinTimer); setBusy(false); if(!state.roomId) cleanup(); toast(msg.message); }
   };
   socket.onclose=()=>{
-    state.ready=false; cleanup(); state.rooms=[]; renderRooms();
+    state.ready=false; clearTimeout(joinTimer); setBusy(false);
+    // A signaling outage need not interrupt an established peer-to-peer call.
+    if(!sessionToken) { cleanup(); state.rooms=[]; }
+    else if(!reconnectDeadline) reconnectDeadline=setTimeout(()=>{ reconnectDeadline=null; sessionToken=null; cleanup(); state.rooms=[]; renderRooms(); toast('A conexão não voltou. Entre novamente quando o servidor estiver disponível.'); },90000);
+    renderRooms();
     $('#server-status').textContent='Reconectando…'; $('#connection-dot').classList.remove('connected'); $('#connection-label').textContent='Reconectando…';
     clearTimeout(reconnectTimer); reconnectTimer=setTimeout(connect,2500);
   };
   socket.onerror=()=>{};
 }
-function requireName(action) {
+function whenReady(action) {
   if(!state.ready) { toast('Aguarde a conexão com o servidor.'); return; }
-  if(state.name) { action(); return; }
-  pendingAction=action; $('#name-dialog').showModal(); $('#name-input').focus();
+  action();
 }
 async function enterRoom(message) {
   if(state.busy) return;
@@ -287,7 +345,7 @@ async function enterRoom(message) {
     toast(messages[error.name] || error.message);
   }
 }
-function leaveRoom() { if(state.ready) send({type:'leave'}); cleanup(); }
+function leaveRoom() { if(state.ready) send({type:'leave'}); else sessionToken=null; cleanup(); }
 function updateControls() {
   const muted=state.muted || state.deafened;
   $('#mute-button').setAttribute('aria-pressed',String(muted)); $('#mute-button').setAttribute('aria-label',muted?'Ligar microfone':'Desligar microfone'); $('#mute-button').innerHTML=icon(muted?'mic-off':'mic');
@@ -296,7 +354,7 @@ function updateControls() {
 function syncAudioState() {
   state.stream?.getAudioTracks().forEach(track=>track.enabled=!state.muted && !state.deafened);
   peers.forEach(p=>{ if(p.audio) p.audio.muted=state.deafened; });
-  updateControls(); send({type:'state',muted:state.muted || state.deafened,deafened:state.deafened});
+  updateControls(); if(state.ready) send({type:'state',muted:state.muted || state.deafened,deafened:state.deafened});
 }
 document.addEventListener('click',event=>{
   const filter=event.target.closest('[data-filter]');
@@ -305,7 +363,7 @@ document.addEventListener('click',event=>{
     document.querySelectorAll('[data-filter]').forEach(button=>{ const active=button===filter; button.classList.toggle('active',active); button.setAttribute('aria-pressed',String(active)); });
     renderRooms();
   }
-  if(event.target.closest('[data-create]')) { if(state.auto) { toast('Desative a voz automática para usar grupos manuais.'); return; } requireName(()=>{ $('#create-dialog').showModal(); $('#room-name').focus(); }); }
+  if(event.target.closest('[data-create]')) { if(state.auto) { toast('Desative a voz automática para usar grupos manuais.'); return; } whenReady(()=>{ $('#create-dialog').showModal(); $('#room-name').focus(); }); }
   const join=event.target.closest('[data-join]');
   if(join) {
     const room=state.rooms.find(r=>r.id===join.dataset.join);
@@ -313,19 +371,9 @@ document.addEventListener('click',event=>{
       toast('Ative a voz automática e conecte seu LoL. A entrada acontece quando você estiver na mesma partida e no mesmo time.');
       $('#lol-panel').scrollIntoView({behavior:'smooth',block:'center'}); return;
     }
-    requireName(()=>enterRoom({type:'join',roomId:join.dataset.join}));
+    whenReady(()=>enterRoom({type:'join',roomId:join.dataset.join}));
   }
 });
-$('#name-form').addEventListener('submit',event=>{
-  event.preventDefault(); const name=$('#name-input').value.trim(); if(!name) { $('#name-input').setCustomValidity('Digite seu nome.'); $('#name-input').reportValidity(); return; }
-  if(!state.ready) { toast('Aguarde a conexão com o servidor.'); return; }
-  state.name=name; send({type:'identify',name}); $('#profile-name').textContent=name; $('#profile-avatar').textContent=initials(name); $('#name-dialog').close();
-  const action=pendingAction; pendingAction=null; action?.();
-});
-$('#name-input').addEventListener('input',()=>$('#name-input').setCustomValidity(''));
-$('#cancel-name').onclick=()=>$('#name-dialog').close();
-$('#name-dialog').addEventListener('close',()=>pendingAction=null);
-$('#profile-button').onclick=()=>{ $('#name-input').value=state.name; $('#name-dialog').showModal(); };
 $('#cancel-create').onclick=()=>{ if(!state.busy) $('#create-dialog').close(); };
 $('#create-dialog').addEventListener('cancel',event=>{if(state.busy)event.preventDefault();});
 $('#create-form').addEventListener('submit',event=>{
@@ -343,8 +391,8 @@ $('#invite-button').onclick=async()=>{
   await copyInvite(state.roomId);
 };
 $('#auto-button').onclick=()=>{
-  if(state.auto) { send({type:'auto-disable'}); cleanup(); return; }
-  requireName(async()=>{
+  if(state.auto) { if(state.ready) send({type:'auto-disable'}); cleanup(); return; }
+  whenReady(async()=>{
     if(state.busy) return;
     setBusy(true);
     try {
@@ -369,6 +417,11 @@ async function copyInvite(roomId) {
 }
 $('#resume-audio').onclick=async()=>{ try { await audioContext?.resume(); await Promise.all([...peers.values()].filter(p=>p.audio).map(p=>p.audio.play())); $('#resume-audio').hidden=true; } catch { toast('O navegador ainda está bloqueando o áudio. Verifique as permissões.'); } };
 setInterval(()=>{ if(state.started) { const seconds=Math.floor((Date.now()-state.started)/1000); $('#elapsed').textContent=`${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`; } },1000);
+setInterval(()=>{
+  if(socket?.readyState!==WebSocket.OPEN || !state.ready) return;
+  if(Date.now()-lastMessage>65000) { socket.close(); return; }
+  send({type:'ping'});
+},20000);
 window.addEventListener('pagehide',()=>{ clearTimeout(reconnectTimer); socket.onclose=null; socket.close(); cleanup(); });
 window.addEventListener('pageshow',event=>{ if(event.persisted) connect(); });
 renderRooms(); connect();

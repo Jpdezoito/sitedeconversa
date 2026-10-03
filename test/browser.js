@@ -26,14 +26,10 @@ try {
   await mkdir('test-results',{recursive:true});
   await a.screenshot({path:'test-results/home-desktop.png',fullPage:true});
   await a.getByRole('button',{name:'Criar meu grupo'}).click();
-  await a.getByLabel('Seu nome',{exact:true}).fill('Ana');
-  await a.getByRole('button',{name:'Pode me chamar assim'}).click();
   await a.getByLabel('Nome do grupo',{exact:true}).fill('Resenha da galera');
   await a.getByRole('button',{name:'Criar e entrar'}).click();
   await a.locator('#call-name').getByText('Resenha da galera').waitFor();
   await b.locator('.join-button').click();
-  await b.getByLabel('Seu nome',{exact:true}).fill('Bruno');
-  await b.getByRole('button',{name:'Pode me chamar assim'}).click();
   await a.getByText('Áudio conectado',{exact:true}).waitFor({timeout:20000});
   await b.getByText('Áudio conectado',{exact:true}).waitFor({timeout:20000});
   for(const page of [a,b]) await page.waitForFunction(async()=>{
@@ -89,7 +85,6 @@ try {
   // A denied microphone must not create a room or leave the form busy.
   await expired.evaluate(()=>{navigator.mediaDevices.getUserMedia=()=>Promise.reject(new DOMException('denied','NotAllowedError'));});
   await expired.getByRole('button',{name:'Criar meu grupo'}).click();
-  await expired.getByLabel('Seu nome',{exact:true}).fill('Carol'); await expired.getByRole('button',{name:'Pode me chamar assim'}).click();
   await expired.getByLabel('Nome do grupo',{exact:true}).fill('Sem permissão'); await expired.getByRole('button',{name:'Criar e entrar'}).click();
   await expired.getByText('Permita o acesso ao microfone no navegador para conversar.').waitFor();
   assert.equal(app.rooms.size,0);

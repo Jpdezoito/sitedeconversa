@@ -10,6 +10,8 @@ import { createLolRooms } from './lib/lol-rooms.js';
 export function createVoiceServer(options = {}) {
   const rooms = new Map();
   const clients = new Map();
+  const sessions = new Map();
+  let closing = false;
   const iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
   if (process.env.TURN_URL && process.env.TURN_USERNAME && process.env.TURN_CREDENTIAL) {
     iceServers.push({ urls: process.env.TURN_URL, username: process.env.TURN_USERNAME, credential: process.env.TURN_CREDENTIAL });
@@ -52,9 +54,9 @@ export function createVoiceServer(options = {}) {
     endpoint.handleUpgrade(req, socket, head, ws => endpoint.emit('connection', ws));
   });
   const send = (client, data) => {
-    if (client?.ws.readyState === WebSocket.OPEN) client.ws.send(JSON.stringify(data));
+    if (client?.ws?.readyState === WebSocket.OPEN) client.ws.send(JSON.stringify(data));
   };
-  const member = c => ({ id: c.id, name: c.name, muted: c.muted, deafened: c.deafened });
+  const member = c => ({ id: c.id, name: c.name, number: c.number, muted: c.muted, deafened: c.deafened });
   const roomData = room => ({ id: room.id, name: room.name, theme: room.theme, capacity: room.capacity || 12, kind: room.kind || 'manual', ...(room.match ? { match: room.match } : {}), members: [...room.members].map(id => member(clients.get(id))) });
   const broadcast = () => {
     for (const c of clients.values()) send(c, { type: 'rooms', rooms: [...rooms.values()].map(roomData), lol: autoStatus(c) });
@@ -99,6 +101,8 @@ export function createVoiceServer(options = {}) {
     if (room.members.size >= (room.capacity || 12)) throw new Error('Este grupo está cheio. Escolha outro ou crie o seu.');
     leave(c);
     c.roomId = room.id;
+    c.number = room.nextNumber = (room.nextNumber || 0) + 1;
+    c.name = `Participante ${c.number}`;
     const peers = [...room.members].map(id => member(clients.get(id)));
     room.members.add(c.id);
     send(c, { type: 'joined', room: roomData(room), peers });
@@ -107,9 +111,9 @@ export function createVoiceServer(options = {}) {
   }
   const clean = (value, max) => typeof value === 'string' ? value.trim().replace(/[\u0000-\u001f\u007f]/g, '').slice(0, max) : '';
   wss.on('connection', ws => {
-    const c = { id: randomUUID(), ws, name: '', roomId: null, muted: false, deafened: false, alive: true, count: 0, window: Date.now(), lastCreate: 0 };
+    let c = { id: randomUUID(), ws, name: 'Participante', number: null, roomId: null, muted: false, deafened: false, alive: true, count: 0, window: Date.now(), lastCreate: 0 };
     clients.set(c.id, c);
-    send(c, { type: 'welcome', id: c.id, iceServers, rooms: [...rooms.values()].map(roomData), lol: autoStatus(c) });
+    send(c, { type: 'welcome', protocol: 2, id: c.id, iceServers, rooms: [...rooms.values()].map(roomData), lol: autoStatus(c) });
     ws.on('pong', () => { c.alive = true; });
     ws.on('error', () => {});
     ws.on('message', raw => {
@@ -118,12 +122,23 @@ export function createVoiceServer(options = {}) {
         if (++c.count > 250) { ws.close(1008, 'Muitas solicitações'); return; }
         const msg = JSON.parse(raw.toString());
         if (!msg || typeof msg !== 'object') throw new Error('Solicitação inválida.');
-        if (msg.type === 'identify') {
-          const name = clean(msg.name, 24);
-          if (!name) throw new Error('Informe como você quer ser chamado.');
-          c.name = name; send(c, { type: 'identified', name }); broadcast(); return;
+        if (msg.type === 'hello') {
+          if (c.resumeEnabled || c.roomId || c.auto) return;
+          const previous = typeof msg.token === 'string' ? sessions.get(msg.token) : null;
+          const resumed = Boolean(previous && previous.ws === null && Date.now() < previous.expires);
+          if (resumed) {
+            clients.delete(c.id);
+            c = previous; clearTimeout(c.expiryTimer); c.ws = ws; c.alive = true;
+          } else {
+            c.resumeEnabled = true; c.token = randomBytes(32).toString('hex'); sessions.set(c.token, c);
+          }
+          send(c, { type: 'welcome', protocol: 2, confirmed: true, resumed, token: c.token, id: c.id, name: c.name, number: c.number, roomId: c.roomId, iceServers, rooms: [...rooms.values()].map(roomData), lol: autoStatus(c) });
+          if (resumed) for (const id of rooms.get(c.roomId)?.members || []) if (id !== c.id) send(clients.get(id), { type: 'peer-resumed', id: c.id });
+          return;
         }
-        if (!c.name) throw new Error('Escolha seu nome antes de entrar.');
+        if (msg.type === 'ping') { send(c, { type: 'pong' }); return; }
+        // Old installers may still identify themselves. Never accept editable participant names.
+        if (msg.type === 'identify') { send(c, { type: 'identified', name: c.name }); return; }
         if (msg.type === 'auto-enable') {
           if (c.auto) { send(c, { type: 'auto-pair', code: c.pairCode, paired: Boolean(c.agent) }); return; }
           c.auto = true; c.agentToken = randomBytes(32).toString('hex'); c.pairCode = randomBytes(16).toString('hex'); c.pairExpires = Date.now() + 300000;
@@ -160,7 +175,18 @@ export function createVoiceServer(options = {}) {
         send(c, { type: 'error', message: error instanceof SyntaxError ? 'Solicitação inválida.' : error.message });
       }
     });
-    ws.on('close', () => { leave(c); clients.delete(c.id); disableAuto(c); broadcast(); });
+    ws.on('close', () => {
+      if (c.ws !== ws) return;
+      c.ws = null;
+      const expire = () => {
+        leave(c); clients.delete(c.id); sessions.delete(c.token); disableAuto(c); broadcast();
+      };
+      if (c.resumeEnabled && !closing) {
+        c.expires = Date.now() + (options.reconnectGraceMs ?? 90000);
+        c.expiryTimer = setTimeout(expire, options.reconnectGraceMs ?? 90000);
+        c.expiryTimer.unref();
+      } else expire();
+    });
   });
   agents.on('connection', ws => {
     let owner = null, lastSnapshot = 0, count = 0, windowAt = Date.now();
@@ -200,6 +226,7 @@ export function createVoiceServer(options = {}) {
     for (const c of clients.values()) {
       if (c.auto && c.lastAgentSeen && Date.now() - c.lastAgentSeen > 15000) { lol.update({ state: 'offline' }, c.id); send(c, { type: 'lol-roster', roster: null }); }
       if (c.auto && c.pairCode && c.pairExpires < Date.now()) { disableAuto(c); send(c, { type: 'auto-expired' }); }
+      if (!c.ws) continue;
       if (!c.alive) { c.ws.terminate(); continue; }
       c.alive = false; c.ws.ping();
     }
@@ -207,8 +234,9 @@ export function createVoiceServer(options = {}) {
   heartbeat.unref();
   server.on('close', () => clearInterval(heartbeat));
   return { server, wss, agents, rooms, lol, close: async () => {
-    clearInterval(heartbeat);
-    for (const c of clients.values()) c.ws.terminate();
+    closing = true; clearInterval(heartbeat);
+    for (const c of clients.values()) { clearTimeout(c.expiryTimer); c.ws?.terminate(); }
+    sessions.clear();
     for (const ws of agents.clients) ws.terminate();
     await new Promise(resolve => agents.close(resolve));
     await new Promise(resolve => wss.close(resolve));

@@ -23,8 +23,6 @@ try {
     await page.evaluate(() => { window.testPeers = []; const PC = RTCPeerConnection; window.RTCPeerConnection = class extends PC { constructor(...args) { super(...args); window.testPeers.push(this); } }; });
     assert.equal(await page.evaluate(() => typeof window.require), 'undefined');
     await page.getByRole('button', { name: 'Ativar voz automática', exact: true }).click();
-    await page.getByLabel('Seu nome', { exact: true }).fill(name);
-    await page.getByRole('button', { name: 'Pode me chamar assim' }).click();
     await page.getByRole('button', { name: 'Desativar voz automática', exact: true }).waitFor();
     await page.waitForFunction(() => document.querySelector('#lol-title').textContent !== 'Conecte seu LoL para entrar automaticamente');
     await new Promise((resolve, reject) => { const deadline = Date.now() + 15000; const check = () => server.agents.clients.size === 1 ? resolve() : Date.now() > deadline ? reject(new Error('Conector integrado n?o pareou')) : setTimeout(check, 100); check(); });
@@ -40,13 +38,21 @@ try {
   await pages[1].getByRole('button', { name: 'Entrar no grupo', exact: true }).click();
   for (const page of pages) await page.getByText('Áudio conectado', { exact: true }).waitFor({ timeout: 20000 });
   for (const page of pages) await page.waitForFunction(async () => { for (const pc of window.testPeers) { const stats = await pc.getStats(); if ([...stats.values()].some(s => s.type === 'inbound-rtp' && s.kind === 'audio' && s.bytesReceived > 0)) return true; } return false; });
+  for(const ws of server.wss.clients) ws.terminate();
+  await Promise.all(pages.map(async page=>{
+    await page.getByText('Reconectando…',{exact:true}).first().waitFor();
+    await page.getByText('Tudo pronto para conectar',{exact:true}).waitFor({timeout:15000});
+    assert.equal(await page.locator('.participant').count(),2);
+    assert.equal(await page.evaluate(()=>window.testPeers.length),1);
+    await page.getByText('Áudio conectado',{exact:true}).waitFor();
+  }));
   await mkdir('test-results', { recursive: true });
   await pages[0].screenshot({ path: 'test-results/desktop-app.png' });
   await pages[0].getByRole('button', { name: 'Comunidade', exact: true }).click();
   await pages[0].locator('#server-url').waitFor();
   assert.equal(await pages[0].locator('#server-url').inputValue(), base);
   assert.deepEqual(errors, []);
-  console.log('Desktop: pareamento integrado, isolamento, dois aplicativos com áudio e configuração OK.');
+  console.log('Desktop: pareamento integrado, isolamento, dois aplicativos com áudio, reconexão e configuração OK.');
 } finally {
   for (const app of apps) await app.close();
   await server.close();

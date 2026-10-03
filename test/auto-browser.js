@@ -22,7 +22,6 @@ try {
     const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto(base);
     await page.getByText('Tudo pronto para conectar').waitFor();
     await page.getByRole('button',{name:'Ativar voz automática'}).click();
-    await page.getByLabel('Seu nome',{exact:true}).fill(name);await page.getByRole('button',{name:'Pode me chamar assim'}).click();
     await page.locator('#pair-panel').waitFor();
     assert.equal(await page.evaluate(()=>window.testStreams.at(-1).getAudioTracks()[0].enabled),false);
     const code=await page.locator('#pair-code').textContent();

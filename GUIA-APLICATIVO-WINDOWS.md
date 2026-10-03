@@ -6,7 +6,7 @@ O servidor compartilhado ainda é necessário para reunir pessoas e sinalizar as
 
 ## Comunidade publicada
 
-Abra https://sitedeconversa.onrender.com e clique em **Baixar aplicativo**. O instalador 1.0.3 já inclui esse endereço. Instale, abra o aplicativo e escolha seu nome; para o LoL, ative a voz automática.
+Abra https://sitedeconversa.onrender.com e clique em **Baixar aplicativo**. O instalador 1.0.4 já inclui esse endereço. Instale, abra o aplicativo e entre em um grupo; para o LoL, ative a voz automática.
 
 ## Publicar outro servidor gratuitamente
 
@@ -37,9 +37,13 @@ O instalador é para Windows x64, não é um APK Android. Não possui certificad
 
 ## Conversar
 
-Instale, abra o Elo e escolha um nome. Crie um grupo ou entre em um grupo existente. Para LoL, clique **Ativar voz automática**: o Elo lê o cliente local e reúne usuários com a voz ativada que estejam na mesma partida, região e time. O microfone fica sem transmitir enquanto aguarda. Ao terminar a partida, a sala encerra; a próxima partida gera outra sala.
+Instale e abra o Elo. Você recebe um número automático ao entrar em cada sala. Crie um grupo ou entre em um grupo existente. Para LoL, clique **Ativar voz automática**: o Elo lê o cliente local e reúne usuários com a voz ativada que estejam na mesma partida, região e time. O microfone fica sem transmitir enquanto aguarda. Ao terminar a partida, a sala encerra; a próxima partida gera outra sala.
 
-Nomes, salas, códigos e associação com a partida ficam em memória. O aplicativo não grava áudio. Apenas o endereço da comunidade é salvo na configuração local. Fechar o Elo encerra a participação; abrir novamente requer ativar a voz.
+Números, salas, códigos e associação com a partida ficam em memória. O aplicativo não grava áudio. Apenas o endereço da comunidade é salvo na configuração local. Fechar o Elo encerra a participação; abrir novamente requer ativar a voz.
+
+## Atualizar para 1.0.4
+
+Feche o Elo, baixe o novo instalador no site e instale por cima da versão anterior. Ainda não há atualização automática dentro do aplicativo. A versão 1.0.4 remove a caixa de nome e preserva chamadas durante interrupções breves de sinalização. A retomada depende de o mesmo servidor continuar ativo; reiniciar o servidor apaga as salas.
 
 ## Limites reais
 

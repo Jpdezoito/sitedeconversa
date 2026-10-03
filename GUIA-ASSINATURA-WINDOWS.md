@@ -2,7 +2,7 @@
 
 ## Estado atual
 
-A versão pública 1.0.3 não tem assinatura digital. O ícone do Elo já está aplicado, mas ícone e metadados não substituem uma assinatura. Em 24/09/2026 não foi encontrado certificado de assinatura de código nos repositórios pessoais do usuário ou da máquina, nem configuração de serviço de assinatura neste PC.
+A versão pública 1.0.4 não tem assinatura digital. O ícone do Elo já está aplicado, mas ícone e metadados não substituem uma assinatura. Em 24/09/2026 não foi encontrado certificado de assinatura de código nos repositórios pessoais do usuário ou da máquina, nem configuração de serviço de assinatura neste PC.
 
 O projeto tem um modo de build assinado preparado. Ele ainda depende de um certificado/serviço válido; nenhum certificado local de teste foi criado e nenhuma nova versão foi publicada como assinada.
 

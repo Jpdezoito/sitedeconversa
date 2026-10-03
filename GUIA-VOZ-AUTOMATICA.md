@@ -5,7 +5,7 @@ No aplicativo Windows, basta abrir o Elo e o LoL e clicar em **Ativar voz autom�
 Para usar pelo navegador, cada jogador faz estes passos no próprio computador:
 
 1. Abra o site Elo e clique em **Ativar voz automática**.
-2. Escolha seu nome e permita o microfone.
+2. Permita o microfone. Seu número na voz é atribuído automaticamente ao entrar na sala.
 3. No painel do código, clique em **Baixe o conector para usar neste navegador**, extraia o ZIP e abra **CONECTAR-LOL.cmd**. Precisa de Node.js 22 ou superior, disponível em [nodejs.org](https://nodejs.org).
 4. No conector, cole o endereço do site e o código que apareceu no navegador.
 5. Deixe o conector, o LoL e a aba do site abertos enquanto joga.

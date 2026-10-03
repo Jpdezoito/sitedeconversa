@@ -3,9 +3,9 @@
 Site de voz em português, com grupos criados pelos usuários e organizados em uma lista vertical. Sem grupos pré-criados, chat de texto, câmera, cadastro, banco de dados ou gravação de áudio.
 
 
-[Baixar o instalador Windows](https://github.com/Jpdezoito/sitedeconversa/releases/download/v1.0.3/Elo-Voice-Setup-1.0.3.exe) · [Configurar servidor gratuito no Render](https://render.com/deploy?repo=https://github.com/Jpdezoito/sitedeconversa)
+[Baixar o instalador Windows](https://github.com/Jpdezoito/sitedeconversa/releases/download/v1.0.4/Elo-Voice-Setup-1.0.4.exe) · [Configurar servidor gratuito no Render](https://render.com/deploy?repo=https://github.com/Jpdezoito/sitedeconversa)
 
-O instalador 1.0.3 já conecta à comunidade https://sitedeconversa.onrender.com. Abra o site, baixe, instale e abra o Elo; não é necessário instalar Node.js nem informar endereço.
+O instalador 1.0.4 já conecta à comunidade https://sitedeconversa.onrender.com. Abra o site, baixe, instale e abra o Elo; não é necessário instalar Node.js nem informar endereço.
 
 [Tutorial completo: aplicativo, voz no LoL e comandos CMD](https://sitedeconversa.onrender.com/#como-usar)
 
@@ -28,18 +28,20 @@ npm start
 
 Abra **http://localhost:3000**. No Windows, se o PowerShell bloquear `npm.ps1`, use `npm.cmd install` e `npm.cmd start`.
 
-Clique em **Criar meu grupo**, escolha seu nome, dê um nome ao grupo e autorize o microfone. Outras pessoas conectadas ao mesmo servidor podem entrar pela lista ou pelo botão **Convidar**. Um convite com `localhost` só funciona no próprio computador; para compartilhar com outras pessoas, publique o site em um domínio com HTTPS.
+Clique em **Criar meu grupo**, dê um nome ao grupo e autorize o microfone. Outras pessoas conectadas ao mesmo servidor podem entrar pela lista ou pelo botão **Convidar**. Um convite com `localhost` só funciona no próprio computador; para compartilhar com outras pessoas, publique o site em um domínio com HTTPS.
 
 ## Comportamento
 
 **Voz automática no LoL:** cada jogador pode ativar o microfone uma vez, parear o conector local e ser reunido automaticamente com usuários da mesma partida/time. Veja [GUIA-VOZ-AUTOMATICA.md](GUIA-VOZ-AUTOMATICA.md). Salas automáticas duram enquanto a partida está ativa; as regras de salas manuais abaixo continuam iguais.
 
+- Participantes numerados por ordem de entrada em cada sala. Não há apelido editável; a sequência não reutiliza números de quem saiu.
+- Interrupções breves de sinalização preservam a chamada e o número por até 90 segundos. O áudio tenta renegociar a conexão automaticamente; reinícios do servidor ainda encerram as salas.
 - Grupos independentes, até 12 participantes por grupo, uma conversa por pessoa/aba.
 - Microfone, desligar som (também silencia o microfone), indicador de fala e lista de participantes.
 - Busca de grupos, escolha de tema e convite por link.
 - Ao sair, trocar de grupo ou fechar a página, as conexões de áudio são encerradas.
-- A sala desaparece quando a última pessoa sai. Conexões interrompidas são removidas pelo heartbeat em até aproximadamente 30 segundos.
-- Nomes, participantes e salas existem apenas na memória do processo. Reiniciar o servidor apaga tudo. Não há localStorage, cookies de identificação, banco de dados ou histórico de conversa.
+- A sala desaparece quando a última pessoa sai. Após uma interrupção detectada, a sessão e a vaga ficam reservadas por até 90 segundos para reconectar. Ao expirar esse prazo, o participante é removido.
+- Números, participantes e salas existem apenas na memória do processo. Reiniciar o servidor apaga tudo. Não há localStorage, cookies de identificação, banco de dados ou histórico de conversa.
 - O servidor encaminha sinalização WebRTC; o áudio circula entre navegadores ou pelo TURN configurado. O aplicativo não grava áudio. Participantes ainda podem usar ferramentas externas de gravação; o site não consegue impedir isso.
 - As salas são públicas para quem acessa esta instância. O convite facilita a entrada e não funciona como senha. Não há autenticação, moderação ou salas privadas nesta versão.
 
@@ -62,6 +64,7 @@ As credenciais TURN configuradas são entregues aos navegadores para conexão. U
 ```sh
 npm test
 npm run test:browser
+npm run test:resilience
 ```
 
 Os testes de servidor cobrem salas isoladas, sinalização, validação, limite de participantes, limpeza e origem de WebSocket. Os testes de navegador usam Chrome instalado e microfone simulado para verificar uma conexão WebRTC real entre dois contextos, controles de áudio, convites, troca de sala, permissões e layout mobile. Para usar outro canal Chromium instalado, defina `BROWSER_CHANNEL`. Imagens da verificação ficam em `test-results/`.
